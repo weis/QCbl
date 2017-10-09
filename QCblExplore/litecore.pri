@@ -66,8 +66,7 @@ win32 {
 }
 
 macx {
-   LITECORE_BUILD_DIR =  $$absolute_path("$$PWD/../../Library/Developer/Xcode/DerivedData/Build/Products/LiteCore")
-   message ("LITECORE_BUILD_DIR macx = $$LITECORE_BUILD_DIR")
+   LITECORE_BUILD_DIR  = $$quote($${LITECORE_BUILD_DIR}/apple)
 
    CONFIG(debug, debug|release){
        LIBCBL_DIR        = $${LITECORE_BUILD_DIR}/Debug
@@ -76,19 +75,19 @@ macx {
        LIBCBL_DIR        = $${LITECORE_BUILD_DIR}/Release
    }
 
-#   message ("LITECORE_BUILD_DIR  = $$LITECORE_BUILD_DIR")
+   LIBS += -framework Foundation -framework CoreServices -framework Security -framework SystemConfiguration
 
    LIBS += -L$$LIBCBL_DIR \
-     -lLiteCore  \
+     -lLiteCore-static  \
+     -lSQLCipher \
      -lFleece  \
      -lTokenizer   \
      -lblip_cpp  \
      -lcivetweb
-
 }
 
 ios {
-   LITECORE_BUILD_DIR =  $$absolute_path("$$PWD/../../Library/Developer/Xcode/DerivedData/Build/Products/LiteCore")
+   LITECORE_BUILD_DIR  = $$quote($${LITECORE_BUILD_DIR}/apple)
 
    CONFIG(debug, debug|release){
        LIBCBL_DIR        = $${LITECORE_BUILD_DIR}/Debug-iphoneos
@@ -96,10 +95,12 @@ ios {
    CONFIG(release, debug|release){
        LIBCBL_DIR        = $${LITECORE_BUILD_DIR}/Release-iphoneos
    }
-   message ("LIBCBL_DIR = $$LIBCBL_DIR")
+#   message ("LIBCBL_DIR = $$LIBCBL_DIR")
+
 
    LIBS += -L$$LIBCBL_DIR \
      -lLiteCore-static  \
+     -lSQLCipher \
      -lFleece  \
      -lTokenizer   \
      -lblip_cpp  \

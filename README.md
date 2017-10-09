@@ -21,12 +21,22 @@ Runs currently on Mac OS, iOS, Linux (Ubuntu, CentOS) and Windows.
 
 # Installation
 
-* if needed: run "git submodule update --init --recursive" to install couchbase lite core including other submodules
-into src/3rdparty/couchbase-lite-core.
-Open CMakeLists.txt from couchbase-lite-core root directory in qt-creator (ver. 4.4 or later) and build the project
-with the preferrred kit.
+* If couchbase-lite-core not installed:
+  - run "git submodule update --init --recursive" to install couchbase lite core including other submodules
+    into src/3rdparty/couchbase-lite-core.
+  - Windows, linux: Open CMakeLists.txt from couchbase-lite-core root directory in qt-creator (ver. 4.4 or later) and build the project
+    with the preferrred kit.
+  - macOS, iOS: Open and build Xcode/LiteCore.xcodeproj
+
 
 * Change locations of the couchbase-lite-core header and libraries in litecore.pri.
+
+* Open QCblExplore.pro in Qt Creator.
+- Windows, linux, macOS, iOS : build and run the project with the preferrred kit.
+- macOS optionally: running qmake in a terminal generates QCblExplore.xcodeproj:
+  qmake -spec macx-xcode
+- iOS optionally: simple run qmake in Qt Creator with the iOS-kit selected.
+  In Xcode open and run {build}/QCblExplore.xcodeproj.
 
 
 
