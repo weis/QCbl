@@ -21,8 +21,14 @@ Runs currently on Mac OS, iOS, Linux (Ubuntu, CentOS) and Windows.
 
 # Installation
 
+* if needed: run "git submodule update --init --recursive" to install couchbase lite core including other submodules
+into src/3rdparty/couchbase-lite-core.
+Open CMakeLists.txt from couchbase-lite-core root directory in qt-creator (ver. 4.4 or later) and build the project
+with the preferrred kit.
+
 * Change locations of the couchbase-lite-core header and libraries in litecore.pri.
-* if needed: run "git submodule update --init --recursive" to install couchbase lite core including other submodules.
+
+
 
 # Authors
 
