@@ -17,7 +17,7 @@
 
 # Platform Support
 
-Runs currently on Mac OS, iOS, Linux (Ubuntu, CentOS) and Windows.
+Tested on macOS, iOS, Linux (Ubuntu, CentOS) and Windows.
 
 # Installation
 
