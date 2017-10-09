@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/Main.qml</file>
+        <file>img/dyadmin.ico</file>
+        <file>qml/DatabasePage.qml</file>
+        <file>qml/QueryPage.qml</file>
+        <file>qml/ReplicationPage.qml</file>
+        <file>qml/DocumentsPage.qml</file>
+        <file>qml/JsonEdit.qml</file>
+        <file>qml/Fonts/IonFonts.qml</file>
+        <file>qml/IconLbl.qml</file>
+        <file>qml/Fonts/IonIconNames.qml</file>
+        <file>qml/Fonts/ionicons.ttf</file>
+        <file>qml/CheckBoxRect.qml</file>
+        <file>qml/IconSuccess.qml</file>
+        <file>qml/IconButton.qml</file>
+    </qresource>
+</RCC>
