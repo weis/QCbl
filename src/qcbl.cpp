@@ -36,10 +36,10 @@
 #include <QMetaType>
 
 
-QVariant QFleece::toVariant(const FLSlice &slize, bool trusted,  bool *ok)
+QVariant QFleece::toVariant(const FLSlice& slize, bool trusted,  bool* ok)
 {
     FLValue root = trusted ? FLValue_FromTrustedData(slize)
-                           : FLValue_FromData(slize);
+                   : FLValue_FromData(slize);
 
     if (root != Q_NULLPTR)
         return toVariant(root, ok);
@@ -50,7 +50,7 @@ QVariant QFleece::toVariant(const FLSlice &slize, bool trusted,  bool *ok)
     return QVariant();
 }
 
-QVariant QFleece::toVariant(FLValue val, bool *ok)
+QVariant QFleece::toVariant(FLValue val, bool* ok)
 {
     if (ok != Q_NULLPTR)
         *ok = true;
@@ -59,7 +59,7 @@ QVariant QFleece::toVariant(FLValue val, bool *ok)
     {
         return toVariantPrivate(val);
     }
-    catch (const fleece::FleeceException &) {}
+    catch (const fleece::FleeceException&) {}
 
     if (ok != Q_NULLPTR)
         *ok = false;
@@ -73,7 +73,7 @@ QVariant QFleece::toVariantPrivate(FLValue val)
     switch (FLValue_GetType(val))
     {
     case kFLNull:
-        return QVariant::fromValue((void *) Q_NULLPTR);
+        return QVariant::fromValue((void*) Q_NULLPTR);
 
     case kFLBoolean:
         return FLValue_AsBool(val);
@@ -146,7 +146,7 @@ QVariant QFleece::toVariantPrivate(FLValue val)
     }
 }
 
-FLSliceResult QFleece::fromVariant(const QVariant &val, FLError *flError)
+FLSliceResult QFleece::fromVariant(const QVariant& val, FLError* flError)
 {
     FLEncoder enc = FLEncoder_New();
     FLSliceResult res = fromVariant(val, enc,  flError);
@@ -154,7 +154,7 @@ FLSliceResult QFleece::fromVariant(const QVariant &val, FLError *flError)
     return res;
 }
 
-FLSliceResult QFleece::fromVariant(const QVariant &val, FLEncoder enc,  FLError *flError)
+FLSliceResult QFleece::fromVariant(const QVariant& val, FLEncoder enc,  FLError* flError)
 {
     Q_ASSERT(enc);
     FLEncoder_Reset(enc);
@@ -175,10 +175,10 @@ bool QFleece::jvIsInteger(double dbl)
         return false;
 
     return dbl < 0. ? dbl >= (double) std::numeric_limits<int32_t>::min()
-                    : dbl <= (double) std::numeric_limits<uint32_t>::max();
+           : dbl <= (double) std::numeric_limits<uint32_t>::max();
 }
 
-void QFleece::flEncodeJValue(FLEncoder enc, const QJsonValue &val)
+void QFleece::flEncodeJValue(FLEncoder enc, const QJsonValue& val)
 {
     switch (val.type())
     {
@@ -239,10 +239,10 @@ void QFleece::flEncodeJValue(FLEncoder enc, const QJsonValue &val)
     }
 }
 
-QJsonValue QFleece::toJsonValue(const FLSlice &slize, bool trusted, bool *ok)
+QJsonValue QFleece::toJsonValue(const FLSlice& slize, bool trusted, bool* ok)
 {
     FLValue root = trusted ? FLValue_FromTrustedData(slize)
-                           : FLValue_FromData(slize);
+                   : FLValue_FromData(slize);
 
     if (root == Q_NULLPTR)
     {
@@ -259,7 +259,7 @@ QJsonValue QFleece::toJsonValue(const FLSlice &slize, bool trusted, bool *ok)
     {
         return toJsonValuePrivate(root);
     }
-    catch (const fleece::FleeceException &) {}
+    catch (const fleece::FleeceException&) {}
 
     if (ok != Q_NULLPTR)
         *ok = false;
@@ -267,7 +267,7 @@ QJsonValue QFleece::toJsonValue(const FLSlice &slize, bool trusted, bool *ok)
     return QJsonValue();
 }
 
-FLSliceResult QFleece::fromJsonValue(const QJsonValue &val, FLEncoder enc, FLError *flError)
+FLSliceResult QFleece::fromJsonValue(const QJsonValue& val, FLEncoder enc, FLError* flError)
 {
     Q_ASSERT(enc);
     FLEncoder_Reset(enc);
@@ -275,7 +275,7 @@ FLSliceResult QFleece::fromJsonValue(const QJsonValue &val, FLEncoder enc, FLErr
     return FLEncoder_Finish(enc, flError);
 }
 
-FLSliceResult QFleece::fromJsonValue(const QJsonValue &val, FLError *flError)
+FLSliceResult QFleece::fromJsonValue(const QJsonValue& val, FLError* flError)
 {
     FLEncoder enc = FLEncoder_New();
     FLSliceResult res = fromJsonValue(val, enc,  flError);
@@ -346,7 +346,7 @@ QJsonValue QFleece::toJsonValuePrivate(FLValue val)
     }
 }
 
-void QFleece::flEncodeVariant(FLEncoder enc, const QVariant &val)
+void QFleece::flEncodeVariant(FLEncoder enc, const QVariant& val)
 {
     switch (val.type())
     {
@@ -397,9 +397,9 @@ void QFleece::flEncodeVariant(FLEncoder enc, const QVariant &val)
         FLEncoder_WriteFloat(enc, val.toDouble());
         return;
 
-        // our json null representation
+    // our json null representation
     case QMetaType::VoidStar:
-        if (val.canConvert<void *>() && val.value<void *>() == Q_NULLPTR)
+        if (val.canConvert<void*>() && val.value<void*>() == Q_NULLPTR)
         {
             FLEncoder_WriteNull(enc);
             return;
@@ -414,7 +414,7 @@ void QFleece::flEncodeVariant(FLEncoder enc, const QVariant &val)
     }
 }
 
-void QFleece::flEncodeHashToDictionary(const QVariantHash &hash, FLEncoder enc)
+void QFleece::flEncodeHashToDictionary(const QVariantHash& hash, FLEncoder enc)
 {
     FLEncoder_BeginDict(enc, (uint32_t)hash.size());
 
@@ -427,7 +427,7 @@ void QFleece::flEncodeHashToDictionary(const QVariantHash &hash, FLEncoder enc)
     FLEncoder_EndDict(enc);
 }
 
-void QFleece::flEncodeMapToDictionary(const QVariantMap &map, FLEncoder enc)
+void QFleece::flEncodeMapToDictionary(const QVariantMap& map, FLEncoder enc)
 {
     FLEncoder_BeginDict(enc, (uint32_t)map.size());
 
@@ -440,7 +440,7 @@ void QFleece::flEncodeMapToDictionary(const QVariantMap &map, FLEncoder enc)
     FLEncoder_EndDict(enc);
 }
 
-void QFleece::flEncodeVariantListToArray(const QVariantList &list, FLEncoder enc)
+void QFleece::flEncodeVariantListToArray(const QVariantList& list, FLEncoder enc)
 {
     FLEncoder_BeginArray(enc, (uint32_t)list.size());
 
@@ -450,7 +450,7 @@ void QFleece::flEncodeVariantListToArray(const QVariantList &list, FLEncoder enc
     FLEncoder_EndArray(enc);
 }
 
-void QFleece::flEncodeStringListToArray(const QStringList &list, FLEncoder enc)
+void QFleece::flEncodeStringListToArray(const QStringList& list, FLEncoder enc)
 {
     FLEncoder_BeginArray(enc, (uint32_t)list.size());
 
@@ -460,7 +460,7 @@ void QFleece::flEncodeStringListToArray(const QStringList &list, FLEncoder enc)
     FLEncoder_EndArray(enc);
 }
 
-QString QFleece::json5ToJson(const QString &json5, FLError *err)
+QString QFleece::json5ToJson(const QString& json5, FLError* err)
 {
     if (err)
         *err = kFLNoError;
@@ -479,7 +479,7 @@ QString QFleece::json5ToJson(const QString &json5, FLError *err)
     return QSlice::qslToQString(json);
 }
 
-QString QFleece::minifyJson(const QString &json, FLError *err)
+QString QFleece::minifyJson(const QString& json, FLError* err)
 {
     if (err)
         *err = kFLNoError;
@@ -497,9 +497,9 @@ QString QFleece::minifyJson(const QString &json, FLError *err)
     return  QSlice::qslToQString((QSlResult) FLValue_ToJSON(root));
 }
 
-const char *QFleece::flerror_getMessage(FLError error)
+const char* QFleece::flerror_getMessage(FLError error)
 {
-    static const char *flErrorString[] =
+    static const char* flErrorString[] =
     {
         "Out of memory, or allocation failed",
         "Array index or iterator out of range",

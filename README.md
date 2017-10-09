@@ -1,4 +1,4 @@
-# Experimental Qt usability and performance check for couchbase-lite-core
+# Qt and couchbase-lite-core: Type interoperability and experimental usage
 
 
 # Features
@@ -20,8 +20,9 @@
 Runs currently on Mac OS, iOS, Linux (Ubuntu, CentOS) and Windows.
 
 # Installation
-Change locations of the couchbase-lite-core header and libraries in litecore.pri.
-run "git submodule update --init --recursive" to install couchbase lite core including other submodules
+
+* Change locations of the couchbase-lite-core header and libraries in litecore.pri.
+* if needed: run "git submodule update --init --recursive" to install couchbase lite core including other submodules.
 
 # Authors
 
