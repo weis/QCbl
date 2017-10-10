@@ -32,11 +32,11 @@ Tested on macOS, iOS, Linux (Ubuntu, CentOS) and Windows.
 * Change locations of the couchbase-lite-core header and libraries in litecore.pri.
 
 * Open QCblExplore.pro in Qt Creator.
-- Windows, linux, macOS, iOS : build and run the project with the preferrred kit.
-- macOS optionally: running qmake in a terminal generates QCblExplore.xcodeproj:
-  qmake -spec macx-xcode
-- iOS optionally: simple run qmake in Qt Creator with the iOS-kit selected.
-  In Xcode open and run {build}/QCblExplore.xcodeproj.
+  - Windows, linux, macOS, iOS: build and run the project with the preferrred kit.
+  - macOS optionally: running qmake -spec macx-xcode in a terminal generates QCblExplore.xcodeproj.
+    In Xcode open and run {build}/QCblExplore.xcodeproj.
+  - iOS optionally: simple run qmake in Qt Creator with the iOS-kit selected.
+    In Xcode open and run {build}/QCblExplore.xcodeproj.
 
 
 
