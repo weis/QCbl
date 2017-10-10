@@ -16,7 +16,7 @@
 * Extensive logging.
 
 # Platform Support
-See [couchbase-lite-core](https://github.com/couchbase) on github.
+See [couchbase-lite-core](https://github.com/couchbase/couchbase-lite-core) on github.
 Tested on macOS, iOS, Linux (Ubuntu, CentOS) and Windows.
 
 # Installation
