@@ -3,7 +3,7 @@
 
 # Features
 
-* Implementation of Qt-Type (including QJsonValue and QVariant) interoperability to Slize / C4Slize / FLSlize structures.
+* Implementation of Qt-Type (including QJsonValue and QVariant) interoperability for Slize / C4Slize / FLSlize / FLValue structures.
 
 * Import json-files from web or local.
 
