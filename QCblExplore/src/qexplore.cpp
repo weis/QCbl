@@ -1662,7 +1662,7 @@ QString QExplore::readDocument(const QString& docId, const QString& revId)
         return QString();
     }
 
-    if (!c4doc_selectRevision(doc, (QSlString) revId, true, &err))
+    if (!c4doc_selectRevision(doc, (QSlString) revId, false, &err))
     {
         displayMessage(QExplore::logC4Error(QString("Unable to get revision, docId = %0, revId = %1").arg(docId, revId), err));
         return QString();
@@ -1763,7 +1763,7 @@ bool QExplore::newDocument()
     rq.body =  body;
     rq.save = true;
     rq.existingRevision = false;
-    rq.revFlags = kRevKeepBody;
+    rq.revFlags = kRevKeepBody | kRevNew;
     c4::ref<C4Document> docNew = c4doc_put(m_c4Database, &rq, nullptr, &c4err);
 
     if (!docNew)
@@ -1813,7 +1813,7 @@ bool QExplore::updateDocument(DocItem* docItem, const QString& jsonText)
         return false;
     }
 
-    c4::ref<C4Document> c4CurrDoc(c4doc_get(m_c4Database, (QSlString)  docItem->docId(), false, &c4err));
+    c4::ref<C4Document> c4CurrDoc(c4doc_get(m_c4Database, (QSlString)  docItem->docId(), true, &c4err));
 
     if (!c4CurrDoc)
     {
@@ -2492,6 +2492,8 @@ bool C4Import::writeJson(const QByteArray& data, int line)
     rq.docID = docId;
     rq.body = body;
     rq.save = true;
+
+
     C4Document* doc = c4doc_put(m_c4DatabaseI, &rq, nullptr, &c4err);
 
     if (doc == nullptr)

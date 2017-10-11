@@ -359,7 +359,7 @@ public:
     static FLSliceResult fromJsonValue(const QJsonValue& val, FLError* flError = Q_NULLPTR);
 
     ///
-    /// \brief Returns standard json from json5 from a QJsonValue.
+    /// \brief Returns standard json from json5.
     ///
     static QString json5ToJson(const QString& json5, FLError* err = Q_NULLPTR);
 
