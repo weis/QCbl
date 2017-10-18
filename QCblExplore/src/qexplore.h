@@ -428,7 +428,7 @@ private:
     void getIndices_t();
 
 
-    void repProgressInfo(qulonglong progress, qulonglong total);
+    void repStatusInfo(C4ReplicatorStatus* status);
     DocItem* findDocId(const QString& docId);
 
     bool checkDirectory(const QString& dir);

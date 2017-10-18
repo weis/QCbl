@@ -53,7 +53,7 @@ C4Slice C4RunQuery::highLightMarkAfter = C4STR("</span>");
 static const QLatin1String defaultC4DbName("demodb");
 static const QLatin1String logDirName("log");
 static const QLatin1String typeTestDirName("tcheck");
-static const QLatin1String defaultRepUrl ("ws://192.168.1.30:4984/demodb");
+static const QLatin1String defaultRepUrl ("ws://192.168.1.30:9984/demodb");
 
 
 // This is our default configuration
@@ -355,13 +355,12 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
         return;
     }
 
-    QString info("Replication status:");
+    repStatusInfo(&status);
 
     switch (status.level)
     {
     case kC4Stopped:
     {
-        repProgressInfo(status.progress.unitsCompleted, status.progress.unitsTotal);
         stopReplication();
         setStatusFlag(Qt::black);
         setRepBusy(false);
@@ -371,7 +370,6 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
 
     case kC4Offline:
     {
-        repProgressInfo(status.progress.unitsCompleted, status.progress.unitsTotal);
         setStatusFlag(Qt::blue);
         setRepStatus("Offline");
         setRepBusy(false);
@@ -380,7 +378,6 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
 
     case kC4Connecting:
     {
-        repProgressInfo(status.progress.unitsCompleted, status.progress.unitsTotal);
         setStatusFlag(Qt::darkGreen);
         setRepStatus("Connecting");
         setRepBusy(false);
@@ -389,7 +386,6 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
 
     case kC4Idle:
     {
-        repProgressInfo(status.progress.unitsCompleted, status.progress.unitsTotal);
         setStatusFlag(Qt::green);
         setRepStatus("Idle");
         setRepBusy(false);
@@ -398,7 +394,8 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
 
     case kC4Busy:
     {
-        repProgressInfo(status.progress.unitsCompleted, status.progress.unitsTotal);
+        if(status.progress.unitsCompleted >= 223130)
+            qDebug ();
         setStatusFlag(Qt::yellow);
         setRepStatus("Busy");
         setRepBusy(false);
@@ -410,22 +407,35 @@ void QExplore::replicatorStatusChanged(C4ReplicatorStatus status)
         break;
     }
 
-    info += " " + m_repStatus + ".";
-    qInfo("%s", qPrintable(info));
-    displayMessage(info);
 }
 
-void QExplore::repProgressInfo(qulonglong progress, qulonglong total)
+void QExplore::repStatusInfo(C4ReplicatorStatus* status)
 {
+    static const char* strLevel[] =
+    {
+        "Stopped",
+        "Offline",
+        "Connecting",
+        "Idle",
+        "Busy",
+    };
+
     QString info;
     qreal progressPercent = 0.0;
 
-    if (total > 0l)
+    C4ReplicatorActivityLevel level = status->level;
+    qulonglong unitsCompleted = status->progress.unitsCompleted;
+    qulonglong unitsTotal = status->progress.unitsTotal;
+    int documentCount = (int) status->progress.documentCount;
+
+    if (unitsTotal > 0l)
     {
-        progressPercent = (qreal)(progress * 100) / (qreal) total ;
-        info =  QString("%0 of %1 documents processed, %2%3 done.")
-                .arg(progress)
-                .arg(total)
+        progressPercent = (qreal)(unitsCompleted * 100) / (qreal) unitsTotal ;
+        info =  QString("Level: %0, %1 of %2 units and %3 documents processed, %4%5 done.")
+                .arg(QString(strLevel[(int)level]))
+                .arg(unitsCompleted)
+                .arg(unitsTotal)
+                .arg(documentCount)
                 .arg(progressPercent, 0, 'f', 4)
                 .arg('%');
     }
@@ -435,7 +445,6 @@ void QExplore::repProgressInfo(qulonglong progress, qulonglong total)
     if (!info.isEmpty())
         qInfo("%s", qPrintable(info));
 }
-
 
 bool QExplore::startReplication(bool continuous)
 {
@@ -2511,7 +2520,7 @@ void C4Import::runImport()
 {
     QString path = m_explore->importPath();
     qInfo("Reading %s ...  ", qPrintable(path));
-    QFile jsonFile(m_explore->importPath());
+    QFile jsonFile(path);
 
     if (!jsonFile.open(QIODevice::ReadOnly))
     {

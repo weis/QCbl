@@ -35,6 +35,8 @@ win32 {
        LITECORE_BUILD_DIR  = $$LITECORE_BUILD_DIR/release
    }
 
+    message ("LITECORE_BUILD_DIR = $$LITECORE_BUILD_DIR")
+
     # LiteCore
     LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic
 
