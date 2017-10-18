@@ -477,12 +477,6 @@ Item {
 
         JsonEdit {
             id: jEditDoc
-            property DocItem docItem
-            property string docId
-            property string revId
-            property string title
-            property bool   isCurrRev
-
             readOnly: !isCurrRev
 
             function updateJEditorDoc()

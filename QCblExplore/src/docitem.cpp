@@ -35,11 +35,13 @@
 
 DocItem::~DocItem()
 {
+    c4docobs_free((C4DocumentObserver*) m_docObserver);
 }
 
 DocItem::DocItem(QObject *parent)
     : QObject(parent)
     , m_explore(nullptr)
+    , m_docObserver(nullptr)
 {
 }
 
@@ -56,6 +58,17 @@ void DocItem::setExplore(QExplore* explore)
     m_explore = explore;
     emit exploreChanged();
 }
+
+void* DocItem::docObs() const
+{
+    return m_docObserver;
+}
+
+void DocItem::setDocObs(void* obs)
+{
+    m_docObserver = obs;
+}
+
 
 const QString& DocItem::docId() const
 {

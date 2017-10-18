@@ -937,10 +937,6 @@ Item {
 
         JsonEdit {
             id: jViewDoc
-            property DocItem docItem
-            property string docId
-            property string revId
-            property string title
 
             readOnly: true
 

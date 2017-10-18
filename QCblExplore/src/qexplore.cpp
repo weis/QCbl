@@ -33,8 +33,10 @@
 #include <c4BlobStore.h>
 #include <c4Document+Fleece.h>
 #include <c4.hh>
+#include <c4Observer.h>
 
 #define MAX_QUERY_ARGS 3
+#define MAX_OUTCHANGES_BUFFER 100
 
 #include <JlCompress.h>
 #include <QTimer>
@@ -76,6 +78,7 @@ QExplore::QExplore(QObject* parent)
     , m_c4Query(nullptr)
     , m_c4IndexCreator(nullptr)
     , m_replicator(nullptr)
+    , m_dbObserver(nullptr)
     , m_newQueryRequest(false)
     , m_docsCount(-1)
     , m_repContinuous(false)
@@ -89,12 +92,12 @@ QExplore::QExplore(QObject* parent)
     , m_queryVarsModel(new QStringListModel(this))
     , m_indexItemsModel_v(new QStringListModel(this))
     , m_indexItemsModel_t(new QStringListModel(this))
+    , m_webLoader(nullptr)
+    , m_webLoadSuccess(true)
     , m_error(false)
     , m_repStatus("Stopped")
     , m_repBusy(false)
     , m_statusFlag(Qt::black)
-    , m_webLoader(nullptr)
-    , m_webLoadSuccess(true)
 {
     QString typeTestDirName =  configDir() + "/tcheck";
 
@@ -119,7 +122,15 @@ QExplore::QExplore(QObject* parent)
 
 QExplore::~QExplore()
 {
+    destroyDependants();
+}
+
+void QExplore::destroyDependants()
+{
     c4repl_free(m_replicator);
+    c4dbobs_free(m_dbObserver);
+    m_replicator = nullptr;
+    m_dbObserver = nullptr;
 }
 
 void QExplore::readConfiguration()
@@ -445,6 +456,82 @@ void QExplore::repStatusInfo(C4ReplicatorStatus* status)
     if (!info.isEmpty())
         qInfo("%s", qPrintable(info));
 }
+
+void QExplore::dbObserverCalledPrivate()
+{
+    if(m_dbObserver == nullptr)
+        return;
+    // Must run in another thread than current.
+    QMetaObject::invokeMethod(this, "dbObserverCalled", Qt::QueuedConnection);
+}
+
+void QExplore::dbObserverCalled()
+{
+    if(m_dbObserver == nullptr)
+        return;
+
+    C4DatabaseChange changes[MAX_OUTCHANGES_BUFFER];
+    int nDocs;
+    bool external;
+    while (0 < (nDocs = c4dbobs_getChanges(m_dbObserver, changes, MAX_OUTCHANGES_BUFFER, &external)))
+    {
+        qDebug() << "dbObserverCalled, external = " << external << ":";
+        for (int i = 0; i < nDocs; ++i)
+        {
+            QString info = QString("Changed docId = %0, sequence = %1").arg(QSlice::c4ToQString(changes[i].docID)).arg(changes[i].sequence);
+            qDebug("%s", qPrintable(info));
+        }
+    }
+}
+
+
+C4DatabaseObserver* QExplore::createDbObserver()
+{
+    if(m_c4Database == nullptr)
+        return nullptr;
+
+    C4DatabaseObserverCallback callback = [](C4DatabaseObserver*, void *context) {
+        ((QExplore*)context)->dbObserverCalledPrivate();
+    };
+
+    C4DatabaseObserver* dbObserver = c4dbobs_create(m_c4Database, callback, this);
+    if(dbObserver == nullptr)
+    {
+        QString errStr("Unable to create database observer.");
+        qWarning("%s", qPrintable(errStr));
+        displayMessage(errStr);
+    }
+
+    return dbObserver;
+}
+
+void QExplore::docObserverCalled(QString docID, quint64 seq)
+{
+    QString info = QString("docObserverCalled, changed docId = %0, sequence = %1").arg(docID).arg(seq);
+    qDebug("%s", qPrintable(info));
+}
+
+
+C4DocumentObserver* QExplore::createDocObserver(const QString& docId)
+{
+    if(m_c4Database == nullptr)
+        return nullptr;
+
+    C4DocumentObserverCallback callback = [](C4DocumentObserver*, C4String docID, C4SequenceNumber sequence, void *context) {
+        ((QExplore*)context)->docObserverCalled((QSlString) docID, (quint64) sequence);
+    };
+
+    C4DocumentObserver* docObserver = c4docobs_create(m_c4Database, (QSlString) docId, callback, this);
+    if(docObserver == nullptr)
+    {
+        QString errStr = QString("Unable to create document observer, docId %1.").arg(docId);
+        qWarning("%s", qPrintable(errStr));
+        displayMessage(errStr);
+    }
+
+    return docObserver;
+}
+
 
 bool QExplore::startReplication(bool continuous)
 {
@@ -2065,6 +2152,7 @@ DocItem* QExplore::createDocItem(C4Document* docCbl)
     docItem->setDocId(QSlice::c4ToQString(docCbl->docID));
     docItem->setRevision(currRevision);
     docItem->setCurrRevision(currRevision);
+    docItem->setDocObs(createDocObserver(docItem->docId()));
     return docItem;
 }
 
@@ -2116,8 +2204,8 @@ void QExplore::getDatabases()
     while (!it.next().isEmpty()) {
         QString name = it.fileName();
         if(name.compare(logDirName, Qt::CaseInsensitive)
-                && name.compare(typeTestDirName, Qt::CaseInsensitive)
-                && name.compare("import", Qt::CaseInsensitive) )
+           && name.compare(typeTestDirName, Qt::CaseInsensitive)
+           && name.compare("import", Qt::CaseInsensitive) )
             m_databasesItems.append(name);
     }
 
@@ -2296,6 +2384,9 @@ bool QExplore::openC4Database(C4DatabaseConfig* config)
     QString dbOpen = QString("Database %0 open in %1 ms.").arg(m_dbname).arg(timer.elapsed());
     qInfo("%s", qPrintable(dbOpen));
 
+
+    m_dbObserver =  createDbObserver();
+
     displayMessage(dbOpen);
     clearDocItems(true);
     clearSearchResult();
@@ -2316,9 +2407,14 @@ bool QExplore::closeC4Database()
     else
         displayMessage(QExplore::logC4Error("Unable to close database", error));
 
+    destroyDependants();
+
     c4db_free(m_c4Database);
     m_c4Database = nullptr;
     m_docsCount = -1;
+
+
+
     displayMessage(QString("Database %0 closed.").arg(m_dbname));
     if(success)
     {

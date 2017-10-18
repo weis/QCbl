@@ -136,6 +136,10 @@ public:
     Q_INVOKABLE int hasIndices_t();
 
 
+    Q_INVOKABLE void dbObserverCalled();
+
+
+
 
 
 public:
@@ -427,6 +431,14 @@ private:
     void getIndices_v();
     void getIndices_t();
 
+    void destroyDependants();
+    void dbObserverCalledPrivate();
+
+    void docObserverCalled(QString docID, quint64 seq);
+
+    C4DatabaseObserver* createDbObserver();
+    C4DocumentObserver* createDocObserver(const QString& docId);
+
 
     void repStatusInfo(C4ReplicatorStatus* status);
     DocItem* findDocId(const QString& docId);
@@ -446,6 +458,7 @@ private:
     C4RunQuery*         m_c4Query;
     C4IndexCreator*     m_c4IndexCreator;
     C4Replicator*       m_replicator;
+    C4DatabaseObserver* m_dbObserver;
     bool                m_newQueryRequest;
     int                 m_docsCount;
     bool                m_repContinuous;

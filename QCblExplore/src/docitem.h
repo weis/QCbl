@@ -30,6 +30,9 @@ public:
     QExplore* explore() const;
     void setExplore(QExplore* explore) ;
 
+    void* docObs() const;
+    void setDocObs(void* obs) ;
+
     const QString& docId() const;
     void setDocId(const QString& docId) ;
 
@@ -67,6 +70,8 @@ Q_SIGNALS:
 private:
 
     QExplore*           m_explore;
+    void*               m_docObserver;
+
     QString             m_docId;
     QString             m_revision;
     QString             m_currRevision;
