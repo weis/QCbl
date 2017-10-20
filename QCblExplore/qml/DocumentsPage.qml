@@ -44,11 +44,17 @@ Item {
 
     Component.onCompleted:  {
         qcblexplore.onDocsCountChanged.connect(countDocs);
+        qcblexplore.onDocContentChanged.connect(documentChanged);
     }
 
     function countDocs ()
     {
         txtCount.displayCount(qcblexplore.docsCount);
+    }
+
+    function documentChanged (docId)
+    {
+       console.log("documentChanged: ", docId);
     }
 
     function onTabActivated(tab)

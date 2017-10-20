@@ -505,26 +505,29 @@ C4DatabaseObserver* QExplore::createDbObserver()
     return dbObserver;
 }
 
-void QExplore::docObserverCalled(QString docID, quint64 seq)
+void QExplore::docObserverCalled(DocItem* item, quint64 seq)
 {
-    QString info = QString("docObserverCalled, changed docId = %0, sequence = %1").arg(docID).arg(seq);
+
+    QString info = QString("docObserverCalled, changed docId = %0, sequence = %1").arg(item->docId()).arg(seq);
     qDebug("%s", qPrintable(info));
+    updateDocItem(item);
 }
 
 
-C4DocumentObserver* QExplore::createDocObserver(const QString& docId)
+C4DocumentObserver* QExplore::createDocObserver(DocItem* docItem)
 {
     if(m_c4Database == nullptr)
         return nullptr;
 
-    C4DocumentObserverCallback callback = [](C4DocumentObserver*, C4String docID, C4SequenceNumber sequence, void *context) {
-        ((QExplore*)context)->docObserverCalled((QSlString) docID, (quint64) sequence);
+    C4DocumentObserverCallback callback = [](C4DocumentObserver*, C4String, C4SequenceNumber sequence, void *context) {
+        DocItem* item = (DocItem*) context;
+        item->explore()->docObserverCalled(item, (quint64) sequence);
     };
 
-    C4DocumentObserver* docObserver = c4docobs_create(m_c4Database, (QSlString) docId, callback, this);
+    C4DocumentObserver* docObserver = c4docobs_create(m_c4Database, (QSlString) docItem->docId(), callback, docItem);
     if(docObserver == nullptr)
     {
-        QString errStr = QString("Unable to create document observer, docId %1.").arg(docId);
+        QString errStr = QString("Unable to create document observer, docId %1.").arg(docItem->docId());
         qWarning("%s", qPrintable(errStr));
         displayMessage(errStr);
     }
@@ -2140,6 +2143,39 @@ void QExplore::createDocItemContent(C4Document* docCbl, DocItem* docItem, const 
 }
 
 
+
+void QExplore::updateDocItem(DocItem* docItem)
+{
+    if(docItem == nullptr)
+        return;
+
+
+    C4Error c4err;
+    c4::ref<C4Document> c4CurrDoc(c4doc_get(m_c4Database, (QSlString)  docItem->docId(), true, &c4err));
+
+    if (!c4CurrDoc)
+    {
+        displayMessage(QExplore::logC4Error(QString("Unable to get document, docId = %0").arg(docItem->docId()), c4err));
+        return;
+    }
+
+    QString  currRevision = QSlice::c4ToQString(c4CurrDoc->revID);
+
+    if(docItem->currRevision() == docItem->revision())
+    {
+        QString info = QString("Updating doc %0 with revision %1 to revision %2.")
+                .arg(docItem->docId())
+                .arg(docItem->currRevision())
+                .arg(currRevision);
+
+        qDebug("%s", qPrintable(info));
+        displayMessage(info);
+        docItem->setCurrRevision(currRevision);
+        docItem->setRevision(currRevision);
+        emit docContentChanged(docItem->docId());
+    }
+}
+
 DocItem* QExplore::createDocItem(C4Document* docCbl)
 {
     if (docCbl == nullptr)
@@ -2152,7 +2188,7 @@ DocItem* QExplore::createDocItem(C4Document* docCbl)
     docItem->setDocId(QSlice::c4ToQString(docCbl->docID));
     docItem->setRevision(currRevision);
     docItem->setCurrRevision(currRevision);
-    docItem->setDocObs(createDocObserver(docItem->docId()));
+    docItem->setDocObs(createDocObserver(docItem));
     return docItem;
 }
 

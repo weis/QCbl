@@ -382,6 +382,8 @@ Q_SIGNALS:
 
 
     void docsCountChanged();
+    void docContentChanged(const QString& docId);
+
 
     void queryCountChanged();
     void dbFileSizeChanged();
@@ -422,7 +424,9 @@ private:
     static int itemCount(QQmlListProperty<DocItem>* l);
     static DocItem* itemAt(QQmlListProperty<DocItem>* l, int index);
 
-     void createDocItemContent(C4Document* docCbl, DocItem* docItem , const QString& currRevId);
+    void createDocItemContent(C4Document* docCbl, DocItem* docItem , const QString& currRevId);
+    void updateDocItem(DocItem* docItem);
+
     DocItem* createDocItem(C4Document* docCbl);
 
     void getDatabases();
@@ -434,10 +438,10 @@ private:
     void destroyDependants();
     void dbObserverCalledPrivate();
 
-    void docObserverCalled(QString docID, quint64 seq);
+    void docObserverCalled(DocItem* item, quint64 seq);
 
     C4DatabaseObserver* createDbObserver();
-    C4DocumentObserver* createDocObserver(const QString& docId);
+    C4DocumentObserver* createDocObserver(DocItem* docItem);
 
 
     void repStatusInfo(C4ReplicatorStatus* status);
