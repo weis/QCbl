@@ -25,6 +25,7 @@
 #include <QThread>
 #include <QtCore>
 #include <QDebug>
+#include <QCoreApplication>
 
 #include "qmlgui.h"
 #include "../src/qexplore.h"
@@ -33,10 +34,10 @@
 
 
 
-QmlGui::QmlGui(QObject* parent) :
-    QObject(parent),
-    m_qmlengine(new QQmlEngine()),
-    m_wndMain(0)
+QmlGui::QmlGui()
+    : QObject(QCoreApplication::instance())
+    , m_qmlengine(new QQmlEngine())
+    , m_wndMain(0)
 {
 
     qmlRegisterType<QExplore> ("QExplore.Components", 1, 0, "QExplore");
@@ -46,6 +47,7 @@ QmlGui::QmlGui(QObject* parent) :
 
     QQmlContext* ctxt = m_qmlengine->rootContext();
     ctxt->setContextProperty("QmlGui", this);
+
 
     QObject::connect(m_qmlengine, SIGNAL(quit()), QCoreApplication::instance(), SLOT(quit()));
 }
@@ -83,6 +85,8 @@ QQuickWindow* QmlGui::loadAppWindow(const QString& qurl)
         window = qobject_cast<QQuickWindow*>(component.create());
         if(window)
         {
+            Qt::WindowFlags flags = window->flags();
+            window->setFlags(flags & (~Qt::WindowStaysOnTopHint));
 
             QSurfaceFormat surfaceFormat = window->requestedFormat();
 

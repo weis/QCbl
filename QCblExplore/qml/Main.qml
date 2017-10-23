@@ -67,6 +67,7 @@ ApplicationWindow {
     QExplore
     {
         id: explore
+        onRepStatusChanged: console.log("RepStatus =", explore.repStatus )
     }
 
     ColumnLayout

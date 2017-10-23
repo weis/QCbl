@@ -55,6 +55,11 @@ Item {
     function documentChanged (docId)
     {
        console.log("documentChanged: ", docId);
+        if(jEditDoc.docId === docId)
+        {
+            jEditDoc.updateJEditorDoc();
+            grEdit.title = jEditDoc.title;
+        }
     }
 
     function onTabActivated(tab)

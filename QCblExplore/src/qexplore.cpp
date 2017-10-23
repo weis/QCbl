@@ -30,14 +30,13 @@
 #include "qexplore.h"
 #include "helper.h"
 
+
 #include <c4BlobStore.h>
 #include <c4Document+Fleece.h>
 #include <c4.hh>
 #include <c4Observer.h>
 
-#define MAX_QUERY_ARGS 3
-#define MAX_OUTCHANGES_BUFFER 100
-
+#include <QGuiApplication>
 #include <JlCompress.h>
 #include <QTimer>
 #include <QDir>
@@ -48,6 +47,11 @@
 #include <QDateTime>
 #include <QDebug>
 #include "qcbl/qcbltest.h"
+
+#define MAX_QUERY_ARGS 3
+#define MAX_OUTCHANGES_BUFFER 100
+
+
 
 C4Slice C4RunQuery::highLightMarkBefore = C4STR("<span style=\"background-color: #FFFF00\">");
 C4Slice C4RunQuery::highLightMarkAfter = C4STR("</span>");
@@ -118,12 +122,40 @@ QExplore::QExplore(QObject* parent)
     getIndices_t();
     getQueries();
     getImports();
+    QObject::connect(static_cast<QGuiApplication*>(QCoreApplication::instance()), SIGNAL(applicationStateChanged(Qt::ApplicationState)),
+                     this, SLOT(onApplicationStateChanged(Qt::ApplicationState)));
+
+}
+
+void QExplore::onApplicationStateChanged(Qt::ApplicationState state)
+{
+    QString strState;
+    switch (state) {
+    case Qt::ApplicationSuspended:
+        strState = "[ApplicationSuspended]";
+        break;
+    case Qt::ApplicationHidden:
+        strState = "[ApplicationHidden]";
+        break;
+    case Qt::ApplicationInactive:
+        strState = "[ApplicationInactive]";
+        break;
+    case Qt::ApplicationActive:
+        strState = "[ApplicationActive]";
+        break;
+    default:
+        strState = "[Unknown]";
+        break;
+    }
+
+    qDebug () << state << ": ApplicationState" << strState;
 }
 
 QExplore::~QExplore()
 {
     destroyDependants();
 }
+
 
 void QExplore::destroyDependants()
 {
@@ -344,12 +376,13 @@ void QExplore::stopReplication()
     if (m_replicator == nullptr)
         return;
 
-    c4repl_stop(m_replicator);
-    //    c4repl_free(m_replicator);
-    //    m_replicator = nullptr;
+    // c4repl_stop(m_replicator);
+    c4repl_free(m_replicator);
+    m_replicator = nullptr;
     setStatusFlag(Qt::black);
     setRepBusy(false);
-    //   displayMessage("Replication stopped.");
+    setRepStatus("Stopped");
+    displayMessage("Replication stopped.");
 }
 
 
@@ -510,6 +543,13 @@ void QExplore::docObserverCalled(DocItem* item, quint64 seq)
 
     QString info = QString("docObserverCalled, changed docId = %0, sequence = %1").arg(item->docId()).arg(seq);
     qDebug("%s", qPrintable(info));
+    if(item->explore() == nullptr)
+    {
+        qDebug() << "STOP";
+        return;
+
+    }
+
     updateDocItem(item);
 }
 
@@ -2182,6 +2222,7 @@ DocItem* QExplore::createDocItem(C4Document* docCbl)
         return nullptr;
 
     DocItem* docItem = new DocItem();
+    docItem->setExplore(this);
     QString  currRevision = QSlice::c4ToQString(docCbl->revID);
     QString text =  "Text";
     docItem->setText(text);

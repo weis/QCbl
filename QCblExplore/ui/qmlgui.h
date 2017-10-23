@@ -7,16 +7,18 @@
 #include <QQmlEngine>
 
 class AppData;
+class QGuiApplication;
 
 class QmlGui : public QObject {
     Q_OBJECT
 
 public:
-    explicit QmlGui(QObject* parent = 0);
+    explicit QmlGui();
     ~QmlGui();
     static void clean();
 
     bool createMainWnd();
+
     Q_INVOKABLE QQuickWindow* mainWnd() const
     {
         return m_wndMain;

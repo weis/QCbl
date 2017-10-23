@@ -64,13 +64,13 @@ Item {
                 RowLayout {
                     id: row1
 
-                    Button { text: "Start"; isDefault: true;  enabled: !qcblexplore.repBusy
+                    Button { id: btnRepStart; text: "Start"; isDefault: true;  enabled: !(qcblexplore.repStatus === "Busy" || qcblexplore.repStatus ==="Idle" || qcblexplore.repStatus ==="Active")
                         onClicked:
                         {
                            qcblexplore.startReplication(cbContinous.checked)
                         }
                     }
-                    Button { text: "Stop"; isDefault: true; enabled: qcblexplore.repStatus=="Idle" || qcblexplore.repStatus=="Active"
+                    Button { id: btnRepStop; text: "Stop"; isDefault: true; enabled: !btnRepStart.enabled;
                         onClicked:
                         {
                             qcblexplore.stopReplication();

@@ -1,4 +1,4 @@
-/****************************************************************************
+	/****************************************************************************
 **
 ** The MIT License (MIT)
 **
@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
     // LogInternal logging;
 
-    QmlGui* qmlGui = new QmlGui(qapp.instance());
+    QmlGui* qmlGui = new QmlGui();
 
     int rc = -1;
     if (qmlGui->createMainWnd())

@@ -410,6 +410,7 @@ private Q_SLOTS:
     void onIndexCreationFinished();
     void onReady();
     void onProgress(qint64 curr, qint64 count);
+    void onApplicationStateChanged(Qt::ApplicationState state);
 
 private:
 
