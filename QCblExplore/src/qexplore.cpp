@@ -2165,6 +2165,15 @@ bool QExplore::getCurrRevision(DocItem* docItem)
         return false;
     }
 
+//    if(!c4doc_selectCurrentRevision(c4Doc))
+//    {
+//        QString errMsg = QString("Unable to get current Revision of document, docId = %0").arg(docItem->docId());
+
+//        displayMessage(errMsg);
+//        qDebug("%s", qPrintable(errMsg));
+//        return false;
+//    }
+
     docItem->setRevision(QSlice::c4ToQString(c4Doc->selectedRev.revID));
     return true;
 }
