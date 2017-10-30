@@ -427,10 +427,10 @@ private:
     static int itemCount(QQmlListProperty<DocItem>* l);
     static DocItem* itemAt(QQmlListProperty<DocItem>* l, int index);
 
-    void createDocItemContent(C4Document* docCbl, DocItem* docItem , const QString& currRevId);
     void updateDocItem(DocItem* docItem);
 
     DocItem* createDocItem(C4Document* docCbl);
+    DocItem* createSearchItem(C4QueryEnumerator* qenum);
 
     void initCivetWeb();
 

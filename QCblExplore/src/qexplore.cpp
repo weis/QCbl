@@ -1530,6 +1530,74 @@ void QExplore::onQueryFinished()
     viewQueryResults();
 }
 
+DocItem* QExplore::createSearchItem(C4QueryEnumerator* qenum)
+{
+    if(qenum == nullptr)
+        return nullptr;
+
+    FLValue value;
+    QString docId;
+    quint64 seqNumber = 0;
+    bool seqFound = false;
+
+    int col = 0;
+    for (FLArrayIterator iter = qenum->columns;
+         nullptr != (value = FLArrayIterator_GetValue(&iter));
+         FLArrayIterator_Next(&iter))
+    {
+
+        QVariant result = QFleece::toVariant(value);
+        QString field = m_c4Query->nameOfColumn(col++);
+        if(!field.compare("key"))
+        {
+            docId = result.toString();
+            continue;
+        }
+        if(!field.compare("sequence"))
+        {
+            seqFound = true;
+            seqNumber =  result.toULongLong();
+            continue;
+        }
+    }
+
+    if(docId.isEmpty() && !seqFound)
+    {
+        QString info = "No document or sequence information found in query";
+        displayMessage(info);
+        qInfo("%s",qPrintable(info));
+
+        return nullptr;
+    }
+
+    C4Error c4err;
+    C4Document* c4Doc = nullptr;
+    if(seqFound)
+    {
+        c4Doc = c4doc_getBySequence(m_c4Database, seqNumber, &c4err);
+        if (!c4Doc)
+        {
+            displayMessage(QExplore::logC4Error(QString("Unable to get document from sequence = %0").arg(seqNumber), c4err));
+            return false;
+        }
+    }
+    else
+    {
+        c4Doc = c4doc_get(m_c4Database, (QSlString) docId, true, &c4err);
+        if (!c4Doc)
+        {
+            displayMessage(QExplore::logC4Error(QString("Unable to get document %0").arg(docId), c4err));
+            return false;
+        }
+
+    }
+    DocItem* item =   createDocItem(c4Doc);
+    c4doc_free(c4Doc);
+
+    return item;
+
+}
+
 bool QExplore::viewQueryResults(int fetch)
 {
     if (m_c4Query == nullptr)
@@ -1543,9 +1611,7 @@ bool QExplore::viewQueryResults(int fetch)
 
     while (row < fetch && (nullptr != (qenum = m_c4Query->next())))
     {
-        DocItem* item = new DocItem();
-        // item->setDocId(QSlice::c4ToQString(qenum->docID));
-        // item->setCurrRevision(QSlice::c4ToQString(qenum->revID));
+        DocItem* item = createSearchItem(qenum);
         item->setRevision(item->currRevision());
         item->setRowInfo(QString("Row: %1/%2").arg(m_c4Query->row()).arg(m_c4Query->count())) ;
         item->setQueryFulltext(m_c4Query->isFulltext());
@@ -1563,42 +1629,23 @@ bool QExplore::viewQueryResults(int fetch)
                  nullptr != (value = FLArrayIterator_GetValue(&iter));
                  FLArrayIterator_Next(&iter))
             {
-                if (!resText.isEmpty())
-                    resText.append("; ");
 
-                QVariant result = QFleece::toVariant(value);
                 QString field = m_c4Query->nameOfColumn(col++);
-                if(!field.compare("key"))
+                if((field.compare("key") && field.compare("sequence")))
                 {
-                    item->setDocId(result.toString());
-                    continue;
+
+                    QVariant result = QFleece::toVariant(value);
+                    if (!resText.isEmpty())
+                        resText.append("; ");
+
+                    // Check for kFLNull
+                    if ((QMetaType::Type) result.type() == QMetaType::VoidStar)
+                        resText += QString("%0 = NULL").arg(field);
+                    else if ((QMetaType::Type)result.type() == QMetaType::QString)
+                        resText += QString("%0 = \"%1\"").arg(field).arg(result.toString());
+                    else
+                        resText += QString("%0 = %1").arg(field).arg(result.toString());
                 }
-                if(!field.compare("sequence"))
-                {
-                    quint64 seq = result.toULongLong();
-                    item->setSequenceNumber(seq);
-
-                    C4Error c4err {};
-                    c4::ref<C4Document> c4Doc(c4doc_getBySequence(m_c4Database, seq, &c4err));
-                    if (!c4Doc)
-                    {
-                        displayMessage(QExplore::logC4Error(QString("Unable to get document, sequence = %0").arg(item->sequenceNumber()), c4err));
-                        return false;
-                    }
-                    QString rev = QSlice::c4ToQString(c4Doc->revID);
-
-                    item->setRevision(rev);
-                    item->setCurrRevision(rev);
-                    continue;
-                }
-
-                // Check for kFLNull
-                if ((QMetaType::Type) result.type() == QMetaType::VoidStar)
-                    resText += QString("%0 = NULL").arg(field);
-                else if ((QMetaType::Type)result.type() == QMetaType::QString)
-                    resText += QString("%0 = \"%1\"").arg(field).arg(result.toString());
-                else
-                    resText += QString("%0 = %1").arg(field).arg(result.toString());
             }
 
             item->setText(resText);
@@ -1606,6 +1653,7 @@ bool QExplore::viewQueryResults(int fetch)
 
         row++;
         m_searchitems.append(item);
+        // c4queryenum_free(qenum); // Crash
     }
 
     emit searchItemsChanged();
@@ -2305,20 +2353,6 @@ bool QExplore::getCurrRevision(DocItem* docItem)
     docItem->setSequenceNumber((quint64) c4Doc->selectedRev.sequence);
     return true;
 }
-
-
-void QExplore::createDocItemContent(C4Document* docCbl, DocItem* docItem, const QString& currRevId)
-{
-    if (docCbl == 0 || docItem == 0)
-        return;
-
-    QString text =  "Text";
-    docItem->setText(text);
-    docItem->setDocId(QSlice::c4ToQString(docCbl->docID));
-    docItem->setRevision(QSlice::c4ToQString(docCbl->revID));
-    docItem->setCurrRevision(currRevId);
-}
-
 
 
 void QExplore::updateDocItem(DocItem* docItem)
