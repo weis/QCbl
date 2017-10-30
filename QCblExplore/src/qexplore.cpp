@@ -46,6 +46,7 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QDebug>
+#include <3rdparty/couchbase-lite-core/vendor/civetweb/include/civetweb.h>
 #include "qcbl/qcbltest.h"
 
 #define MAX_QUERY_ARGS 3
@@ -60,17 +61,18 @@ static const QLatin1String defaultC4DbName("demodb");
 static const QLatin1String logDirName("log");
 static const QLatin1String typeTestDirName("tcheck");
 static const QLatin1String defaultRepUrl ("ws://192.168.1.30:9984/demodb");
+static const QLatin1String queryDocId("[\"SELECT\",{\"WHERE\":[\">=\",[\"._id\"],\"%0\"],\"ORDER_BY\":[\"._id\"],\"LIMIT\":\"%1\"}]");
 
 
 // This is our default configuration
-static C4DatabaseConfig defaultC4DbConfig =  { kC4DB_Bundled | kC4DB_SharedKeys | kC4DB_Create,
+static C4DatabaseConfig defaultC4DbConfig =  { kC4DB_SharedKeys | kC4DB_Create,
                                                kC4SQLiteStorageEngine, kC4RevisionTrees,
                                                { kC4EncryptionNone, {0}}
                                              };
 
 // This is our import configuration:
 // c4DatabaseObserver is disabled.
-static C4DatabaseConfig importC4DbConfig =  { kC4DB_NonObservable | kC4DB_Bundled | kC4DB_SharedKeys | kC4DB_Create,
+static C4DatabaseConfig importC4DbConfig =  { kC4DB_NonObservable | kC4DB_SharedKeys | kC4DB_Create,
                                               kC4SQLiteStorageEngine, kC4RevisionTrees,
                                               { kC4EncryptionNone, {0}}
                                             };
@@ -125,6 +127,18 @@ QExplore::QExplore(QObject* parent)
     QObject::connect(static_cast<QGuiApplication*>(QCoreApplication::instance()), SIGNAL(applicationStateChanged(Qt::ApplicationState)),
                      this, SLOT(onApplicationStateChanged(Qt::ApplicationState)));
 
+}
+
+void QExplore::initCivetWeb()
+{
+#ifdef Q_OS_WIN
+    static bool wsInit = false;
+    if (!wsInit)
+    {
+        wsInit = true;
+        mg_start(nullptr, nullptr, nullptr);
+    }
+#endif
 }
 
 void QExplore::onApplicationStateChanged(Qt::ApplicationState state)
@@ -582,6 +596,7 @@ bool QExplore::startReplication(bool continuous)
 
     if (!m_replicator)
     {
+        initCivetWeb();
         QSlString remoteDbName (m_dbname);
         QSlString repUrl = (QSlString)m_repUrl;
 
@@ -1339,7 +1354,6 @@ bool QExplore::webLoadSuccess()
 }
 
 
-
 bool QExplore::queryHasResultsNext()
 {
     return m_c4Query == nullptr ? false : m_c4Query->row() + 1 < m_c4Query->count();
@@ -1530,8 +1544,8 @@ bool QExplore::viewQueryResults(int fetch)
     while (row < fetch && (nullptr != (qenum = m_c4Query->next())))
     {
         DocItem* item = new DocItem();
-        item->setDocId(QSlice::c4ToQString(qenum->docID));
-        item->setCurrRevision(QSlice::c4ToQString(qenum->revID));
+        // item->setDocId(QSlice::c4ToQString(qenum->docID));
+        // item->setCurrRevision(QSlice::c4ToQString(qenum->revID));
         item->setRevision(item->currRevision());
         item->setRowInfo(QString("Row: %1/%2").arg(m_c4Query->row()).arg(m_c4Query->count())) ;
         item->setQueryFulltext(m_c4Query->isFulltext());
@@ -1545,7 +1559,6 @@ bool QExplore::viewQueryResults(int fetch)
         else
         {
             FLValue value;
-
             for (FLArrayIterator iter = qenum->columns;
                  nullptr != (value = FLArrayIterator_GetValue(&iter));
                  FLArrayIterator_Next(&iter))
@@ -1554,14 +1567,38 @@ bool QExplore::viewQueryResults(int fetch)
                     resText.append("; ");
 
                 QVariant result = QFleece::toVariant(value);
+                QString field = m_c4Query->nameOfColumn(col++);
+                if(!field.compare("key"))
+                {
+                    item->setDocId(result.toString());
+                    continue;
+                }
+                if(!field.compare("sequence"))
+                {
+                    quint64 seq = result.toULongLong();
+                    item->setSequenceNumber(seq);
+
+                    C4Error c4err {};
+                    c4::ref<C4Document> c4Doc(c4doc_getBySequence(m_c4Database, seq, &c4err));
+                    if (!c4Doc)
+                    {
+                        displayMessage(QExplore::logC4Error(QString("Unable to get document, sequence = %0").arg(item->sequenceNumber()), c4err));
+                        return false;
+                    }
+                    QString rev = QSlice::c4ToQString(c4Doc->revID);
+
+                    item->setRevision(rev);
+                    item->setCurrRevision(rev);
+                    continue;
+                }
 
                 // Check for kFLNull
                 if ((QMetaType::Type) result.type() == QMetaType::VoidStar)
-                    resText += QString("%0 = NULL").arg(m_c4Query->nameOfColumn(col++));
+                    resText += QString("%0 = NULL").arg(field);
                 else if ((QMetaType::Type)result.type() == QMetaType::QString)
-                    resText += QString("%0 = \"%1\"").arg(m_c4Query->nameOfColumn(col++)).arg(result.toString());
+                    resText += QString("%0 = \"%1\"").arg(field).arg(result.toString());
                 else
-                    resText += QString("%0 = %1").arg(m_c4Query->nameOfColumn(col++)).arg(result.toString());
+                    resText += QString("%0 = %1").arg(field).arg(result.toString());
             }
 
             item->setText(resText);
@@ -1697,17 +1734,18 @@ QString QExplore::getAllDocuments(const QString& startDocId, int limit)
 
     // Apply options:
     C4EnumeratorOptions options;
-    options.flags = kC4InclusiveStart | kC4InclusiveEnd | kC4IncludeNonConflicted;
-    options.skip = 0;
+    options.flags = kC4IncludeNonConflicted;
     // TODO: Implement startkey, endkey, skip, limit, etc.
     // Create enumerator:
     C4Error err;
 
-    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database,
-                                                       startDocId.isEmpty()
-                                                       ? kC4SliceNull
-                                                       : (C4Slice) c4StartDocId,
-                                                       kC4SliceNull, &options, &err);
+    //    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database,
+    //                                                       startDocId.isEmpty()
+    //                                                       ? kC4SliceNull
+    //                                                       : (C4Slice) c4StartDocId,
+    //                                                       kC4SliceNull, &options, &err);
+
+    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database, &options, &err);
 
     if (!e)
     {
@@ -1746,6 +1784,76 @@ QString QExplore::getAllDocuments(const QString& startDocId, int limit)
     if (err.code > 0)
     {
         displayMessage(QExplore::logC4Error("Unable to get the next document", err));
+        return startDocIdNext;
+    }
+
+    emit docItemsChanged();
+    return startDocIdNext;
+}
+
+QString QExplore::getAllDocumentsQuery(const QString& startDocId, int limit)
+{
+
+    if (!m_c4Database)
+        return QString();
+
+    // Zero left-padding
+    QString startDocNumber = QString("%1").arg(startDocId.toLong(), 7, 10, QChar('0'));
+
+    QString startDocIdNext;
+
+
+    // Use limit+1 to set startDocIdNext
+    QSlString query = QString(queryDocId).arg(startDocNumber).arg(limit+1);
+    C4Error errQuery {};
+    c4::ref<C4Query> c4query = c4query_new(m_c4Database, query, &errQuery);
+    if (c4query == nullptr)
+    {
+        displayMessage(QExplore::logC4Error("Unable to create all document query", errQuery));
+        m_error = true;
+        return QString();
+    }
+    C4QueryOptions opt {} ;
+    c4::ref<C4QueryEnumerator>  qenum = c4query_run(c4query, &opt, kC4SliceNull, &errQuery);
+
+    if (!qenum)
+    {
+        displayMessage(QExplore::logC4Error("Unable to get query enumerator", errQuery));
+        m_error = true;
+        return QString();
+    }
+
+    C4Error errEnum {};
+    int count = 0;
+    clearDocItems(false);
+
+    while (c4queryenum_next(qenum, &errEnum))
+    {
+        if(!(FLArrayIterator_GetCount(&qenum->columns) > 0))
+            break;
+        QString docID = QSlice::c4ToQString((FLValue_AsString(FLArrayIterator_GetValueAt(&qenum->columns, 0))));
+
+        C4Error c4err;
+        c4::ref<C4Document> c4Doc(c4doc_get(m_c4Database, (QSlString) docID, true, &c4err));
+
+        if (!c4Doc)
+        {
+            displayMessage(QExplore::logC4Error(QString("Unable to get document, docId = %0").arg(docID), c4err));
+            break;
+        }
+
+
+        if (count < limit)
+            m_docItems.append(createDocItem(c4Doc));
+        else
+            startDocIdNext = docID;
+
+        count++;
+    }
+
+    if (errEnum.code > 0)
+    {
+        displayMessage(QExplore::logC4Error("Unable to get the next document", errEnum));
         return startDocIdNext;
     }
 
@@ -1813,7 +1921,7 @@ QString QExplore::readDocument(const QString& docId, const QString& revId)
         return QString();
     }
 
-    QString body = QSlice::qslToQString((QSlStringResult) c4doc_bodyAsJSON(doc, false, &err));
+    QString body = (QSlStringResult) c4doc_bodyAsJSON(doc, false, &err);
 
     if (body.isNull())
     {
@@ -1832,9 +1940,8 @@ QString QExplore::getStartDocId()
 
     C4Error c4err;
     C4EnumeratorOptions options;
-    options.flags =  kC4InclusiveStart | kC4InclusiveEnd | kC4IncludeNonConflicted;
-    options.skip = 0;
-    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database, kC4SliceNull, kC4SliceNull, &options, &c4err);
+    options.flags =  kC4IncludeNonConflicted;
+    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database, &options, &c4err);
 
     if (!e)
     {
@@ -1859,9 +1966,8 @@ bool QExplore::newDocument()
 
     C4Error c4err;
     C4EnumeratorOptions options;
-    options.flags =  kC4Descending | kC4InclusiveStart | kC4InclusiveEnd | kC4IncludeNonConflicted;
-    options.skip = 0;
-    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database, kC4SliceNull, kC4SliceNull, &options, &c4err);
+    options.flags =  kC4Descending | kC4IncludeNonConflicted;
+    c4::ref<C4DocEnumerator> e = c4db_enumerateAllDocs(m_c4Database, &options, &c4err);
 
     if (!e)
     {
@@ -1935,6 +2041,15 @@ bool QExplore::updateDocument(DocItem* docItem, const QString& jsonText)
         return false;
     }
 
+    bool hasDocObs = docItem->docObs() != nullptr;
+
+    if(hasDocObs)
+    {
+        // If not frees the obsever, the appplication crashed on deletion the document
+        c4docobs_free((C4DocumentObserver*) docItem->docObs());
+        docItem->setDocObs(nullptr);
+    }
+
     C4Error c4err {};
     c4::Transaction t(m_c4Database);
 
@@ -1982,12 +2097,23 @@ bool QExplore::updateDocument(DocItem* docItem, const QString& jsonText)
         return false;
     }
 
+
     QString revId = QSlice::c4ToQString(c4Doc->revID);
     docItem->setCurrRevision(revId);
     docItem->setRevision(revId);
+    docItem->setSequenceNumber((quint64) c4Doc->sequence);
+
+    if(hasDocObs)
+    {
+        if(!createDocObserver(docItem))
+            return false;
+    }
     QString info = QString("Document %0 successfully updated.").arg(docItem->docId());
+
+
     qInfo("%s", qPrintable(info));
     this->displayMessage(info);
+
     return true;
 }
 
@@ -2143,6 +2269,7 @@ bool QExplore::getNextRevision(DocItem* docItem)
     }
 
     docItem->setRevision(QSlice::c4ToQString(c4Doc->selectedRev.revID));
+    docItem->setSequenceNumber((quint64) c4Doc->selectedRev.sequence);
     return true;
 }
 
@@ -2165,16 +2292,17 @@ bool QExplore::getCurrRevision(DocItem* docItem)
         return false;
     }
 
-//    if(!c4doc_selectCurrentRevision(c4Doc))
-//    {
-//        QString errMsg = QString("Unable to get current Revision of document, docId = %0").arg(docItem->docId());
+    //    if(!c4doc_selectCurrentRevision(c4Doc))
+    //    {
+    //        QString errMsg = QString("Unable to get current Revision of document, docId = %0").arg(docItem->docId());
 
-//        displayMessage(errMsg);
-//        qDebug("%s", qPrintable(errMsg));
-//        return false;
-//    }
+    //        displayMessage(errMsg);
+    //        qDebug("%s", qPrintable(errMsg));
+    //        return false;
+    //    }
 
     docItem->setRevision(QSlice::c4ToQString(c4Doc->selectedRev.revID));
+    docItem->setSequenceNumber((quint64) c4Doc->selectedRev.sequence);
     return true;
 }
 
@@ -2237,6 +2365,7 @@ DocItem* QExplore::createDocItem(C4Document* docCbl)
     docItem->setText(text);
     docItem->setDocId(QSlice::c4ToQString(docCbl->docID));
     docItem->setRevision(currRevision);
+    docItem->setSequenceNumber((quint64) docCbl->sequence);
     docItem->setCurrRevision(currRevision);
     docItem->setDocObs(createDocObserver(docItem));
     return docItem;
@@ -2290,8 +2419,8 @@ void QExplore::getDatabases()
     while (!it.next().isEmpty()) {
         QString name = it.fileName();
         if(name.compare(logDirName, Qt::CaseInsensitive)
-           && name.compare(typeTestDirName, Qt::CaseInsensitive)
-           && name.compare("import", Qt::CaseInsensitive) )
+                && name.compare(typeTestDirName, Qt::CaseInsensitive)
+                && name.compare("import", Qt::CaseInsensitive) )
             m_databasesItems.append(name);
     }
 
@@ -2850,7 +2979,7 @@ QString C4RunQuery::nameOfColumn(int col)
     if (m_colNameCache[col].isEmpty())
     {
         QString rawName = QSlice::qslToQString((QSlStringResult) c4query_nameOfColumn(m_c4query, col));
-        m_colNameCache[col] = rawName.split('\'', QString::SkipEmptyParts)[1];
+        m_colNameCache[col] = rawName.contains('\'') ?  rawName.split('\'', QString::SkipEmptyParts)[1] : rawName;
     }
 
     return m_colNameCache[col];
@@ -2965,7 +3094,8 @@ C4QueryEnumerator* C4RunQuery::next()
 
             // symbol(s) not found for MacOs
             // C4StringResult c4resMatch = c4queryenum_fullTextMatched(m_qenum, &error);
-            C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, m_qenum->docID,  m_qenum->docSequence, &error);
+            // C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, m_qenum->docID,  m_qenum->docSequence, &error);
+            C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, m_qenum->fullTextID, &error);
 
             if (error.code > 0)
             {

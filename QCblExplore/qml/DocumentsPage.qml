@@ -96,7 +96,7 @@ Item {
                         text: "Read"
                         onClicked: {
                             grAction.startDocId = inpFrom.text
-                            grAction.nextDocId = qcblexplore.getAllDocuments(grAction.startDocId, inpFetch.text);
+                            grAction.nextDocId = qcblexplore.getAllDocumentsQuery(grAction.startDocId, inpFetch.text);
                             if(grAction.startDocId !== "")
                             {
                                 btnNew.enabled = true;
@@ -111,7 +111,7 @@ Item {
                         text: "Next"
                         onClicked: {
                             grAction.startDocId = grAction.nextDocId;
-                            grAction.nextDocId = qcblexplore.getAllDocuments(grAction.nextDocId, inpFetch.text);
+                            grAction.nextDocId = qcblexplore.getAllDocumentsQuery(grAction.nextDocId, inpFetch.text);
                             if(grAction.startDocId !== "")
                             {
                                 btnNew.enabled = true;
@@ -328,6 +328,16 @@ Item {
                                 Text {
                                     text: model.docId
                                 }
+                                Item {
+                                    width: mm(2)
+                                }
+                                Text {
+                                    text: 'Seq:';color: "darkgray";Layout.preferredWidth: mm(9);horizontalAlignment: Text.AlignRight
+                                }
+                                Text {
+                                    text: model.sequenceNumber
+                                }
+
                             }
                             RowLayout {
                                 Text {
@@ -494,13 +504,14 @@ Item {
             {
                 docId = docItem.docId;
                 revId = docItem.revision;
+                seqNumber = docItem.sequenceNumber;
                 isCurrRev = docItem.revision === docItem.currRevision;
                 setJson(qcblexplore.readDocument(docId, revId));
                 cursorPosition = 0;
 
                 var docDisplay = docId.length > 12 ? docId.substring(0,10) + "..." : docId;
                 var revDisplay = revId.length > 12 ? revId.substring(0,10) + "..." : revId;
-                title = "DocID: " + docDisplay + ", RevID: " + revDisplay ;
+                title = "DocID: " + docDisplay + ", RevID: " + revDisplay + ", Seq: " + seqNumber ;
             }
 
 

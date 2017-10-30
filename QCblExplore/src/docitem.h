@@ -13,6 +13,7 @@ class DocItem : public QObject
     Q_PROPERTY(QString docId READ docId WRITE setDocId NOTIFY docIdChanged)
     Q_PROPERTY(QString revision READ revision WRITE setRevision NOTIFY revisionChanged)
     Q_PROPERTY(QString currRevision READ currRevision WRITE setCurrRevision NOTIFY currRevisionChanged)
+    Q_PROPERTY(quint64 sequenceNumber READ sequenceNumber WRITE setSequenceNumber NOTIFY sequenceNumberChanged)
     Q_PROPERTY(bool isCurrRevision READ isCurrRevision NOTIFY revisionChanged)
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY titleChanged)
     Q_PROPERTY(QString rowInfo READ rowInfo WRITE setRowInfo NOTIFY rowInfoChanged)
@@ -42,6 +43,9 @@ public:
     const QString& currRevision() const;
     void setCurrRevision(const QString& currRevision) ;
 
+    quint64 sequenceNumber() const;
+    void setSequenceNumber(quint64 seq) ;
+
     inline bool isCurrRevision() {
         return m_currRevision  == m_revision;
     }
@@ -60,6 +64,7 @@ Q_SIGNALS:
     void docIdChanged();
     void revisionChanged();
     void currRevisionChanged();
+    void sequenceNumberChanged();
     void titleChanged();
     void rowInfoChanged();
     void jsonTextChanged();
@@ -74,6 +79,7 @@ private:
 
     QString             m_docId;
     QString             m_revision;
+    quint64             m_sequenceNumber;
     QString             m_currRevision;
     QString             m_text;
     QString             m_rowInfo;

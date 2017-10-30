@@ -39,6 +39,7 @@ Rectangle {
     property string docId
     property string revId
     property string title
+    property int    seqNumber
     property bool   isCurrRev
     property alias cursorPosition: textArea.cursorPosition
     property alias text: textArea.text

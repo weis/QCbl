@@ -113,6 +113,20 @@ void DocItem::setCurrRevision(const QString& currRevision)
     emit currRevisionChanged();
 }
 
+quint64 DocItem::sequenceNumber() const
+{
+    return m_sequenceNumber;
+}
+
+void DocItem::setSequenceNumber(quint64 seq)
+{
+    if(m_sequenceNumber == seq)
+        return;
+
+    m_sequenceNumber = seq;
+    emit sequenceNumberChanged();
+}
+
 
 const QString& DocItem::text() const
 {

@@ -82,6 +82,8 @@ class QExplore : public QObject
 public:
     Q_INVOKABLE QString getAllDocuments(const QString& startDocId = QString(), int limit = 1000);
 
+    Q_INVOKABLE QString getAllDocumentsQuery(const QString& startDocId = QString(), int limit = 1000);
+
     Q_INVOKABLE bool runQuery(const QString& fname);
     Q_INVOKABLE bool viewQueryResults(int fetch = 1000);
 
@@ -429,6 +431,8 @@ private:
     void updateDocItem(DocItem* docItem);
 
     DocItem* createDocItem(C4Document* docCbl);
+
+    void initCivetWeb();
 
     void getDatabases();
     void getImports();
