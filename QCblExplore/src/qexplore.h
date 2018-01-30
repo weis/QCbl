@@ -7,6 +7,7 @@
 #include <QColor>
 #include <QStringListModel>
 #include <QThread>
+#include <QMutex>
 #include <qcbl.h>
 #include "docitem.h"
 #include "qurlloader.h"
@@ -345,6 +346,19 @@ public:
                 .arg(name);
     }
 
+    inline bool isQueryCached (const QString& name) {
+        return m_queryCache.contains(name);
+    }
+
+    inline const QString& getQueryContent(const QString& name) {
+        return m_queryCache[name][0];
+    }
+
+    inline QString getQueryColumnName(const QString& name, int col) {
+        return col+1 < m_queryCache[name].size() ?  m_queryCache[name][col+1]  : QString();
+    }
+
+
 Q_SIGNALS:
     void dbnameChanged();
     void inputChanged();
@@ -456,8 +470,11 @@ private:
     bool writeJson(const QByteArray& data, int line);
 
 
+    void startRestListener();
     void replicatorStatusChanged(C4ReplicatorStatus status);
     bool checkWebLoadSuccess();
+    void createQueryCache(const QString& queryName, const QString &json);
+
 
 
 
@@ -468,6 +485,8 @@ private:
     C4IndexCreator*     m_c4IndexCreator;
     C4Replicator*       m_replicator;
     C4DatabaseObserver* m_dbObserver;
+    C4Listener*         m_restListener;
+
     bool                m_newQueryRequest;
     int                 m_docsCount;
     bool                m_repContinuous;
@@ -495,7 +514,9 @@ private:
     QVector<QString>    m_queryText;
     QVector<bool>       m_queryI;
 
-    QMap<QString, QString> m_queryCache;
+    QMap<QString, QVector<QString>> m_queryCache;
+
+
     QString             m_querycurr;
     QUrlLoader*         m_webLoader;
     bool                m_webLoadSuccess;
@@ -511,7 +532,6 @@ private:
     QString             m_importPath;
     bool                m_repBusy;
     QColor              m_statusFlag;
-
 
 
 };
@@ -569,15 +589,15 @@ public:
     inline bool error() { return m_error; }
     inline int count() { return m_count;}
     inline int row() { return m_rowsQueried; }
-    inline const QString& query() { return m_query ;}
-    void setQuery(const QString& query) { m_query = query; }
+    inline const QString& query() { return m_queryContent ;}
+    void setQuery(const QString& name, const QString& query) { m_queryName = name;  m_queryContent = query; }
 
     inline bool isFulltext() { return m_isFulltext;}
     inline const QString& fullTextRes() { return m_fullTextRes;}
     inline qint64 elapsed () { return m_elapsed ;}
     inline bool isDocumentCount() { return m_isDocumentCount;}
 
-    QString nameOfColumn(int col);
+    inline QString nameOfColumn(int col) { return m_explore->getQueryColumnName(m_queryName, col); }
     C4QueryEnumerator* next();
     void reset();
 
@@ -595,7 +615,7 @@ private:
     void runQueryCount();
     void runQuery();
     void run();
-    static QString markResult(const C4FullTextTerm *ft, int ftCount, C4Slice c4res);
+    static QString markResult(const C4FullTextMatch *ft, int ftCount, C4Slice c4res);
 
 private:
     C4Database*                             m_c4DatabaseI;
@@ -603,7 +623,8 @@ private:
     C4QueryEnumerator*                      m_qenum;
     bool                                    m_isFulltext;
     int                                     m_rowsQueried;
-    QString                                 m_query;
+    QString                                 m_queryContent;
+    QString                                 m_queryName;
     bool                                    m_cancel;
     int                                     m_count;
     bool                                    m_error;

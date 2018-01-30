@@ -1,0 +1,1 @@
+["SELECT",{"WHAT":["._id",".name.last",".name.first"],"WHERE":["AND",["LIKE",[".name.first"],"<<First Name%s$A%>>"],["LIKE",[".name.last"],"<<Last Name%s$B%>>"]],"ORDER_BY":[".name.last",".name.first"],"LIMIT":"<<LIMIT%n$10>>"}]

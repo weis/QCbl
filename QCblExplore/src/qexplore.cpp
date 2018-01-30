@@ -38,6 +38,8 @@
 
 #include <QGuiApplication>
 #include <JlCompress.h>
+#include <QJsonValue>
+
 #include <QTimer>
 #include <QDir>
 #include <QDirIterator>
@@ -52,17 +54,20 @@
 #define MAX_QUERY_ARGS 3
 #define MAX_OUTCHANGES_BUFFER 100
 
-
+// RESTListener+Replicate.cc
+// void RESTListener::handleReplicate(litecore::REST::RequestResponse &rq) ;
 
 C4Slice C4RunQuery::highLightMarkBefore = C4STR("<span style=\"background-color: #FFFF00\">");
 C4Slice C4RunQuery::highLightMarkAfter = C4STR("</span>");
+
+C4ListenerConfig configRestListener = {59849, kC4RESTAPI};
+
 
 static const QLatin1String defaultC4DbName("demodb");
 static const QLatin1String logDirName("log");
 static const QLatin1String typeTestDirName("tcheck");
 static const QLatin1String defaultRepUrl ("ws://192.168.1.30:9984/demodb");
 static const QLatin1String queryDocId("[\"SELECT\",{\"WHERE\":[\">=\",[\"._id\"],\"%0\"],\"ORDER_BY\":[\"._id\"],\"LIMIT\":\"%1\"}]");
-
 
 // This is our default configuration
 static C4DatabaseConfig defaultC4DbConfig =  { kC4DB_SharedKeys | kC4DB_Create,
@@ -85,6 +90,7 @@ QExplore::QExplore(QObject* parent)
     , m_c4IndexCreator(nullptr)
     , m_replicator(nullptr)
     , m_dbObserver(nullptr)
+    , m_restListener(nullptr)
     , m_newQueryRequest(false)
     , m_docsCount(-1)
     , m_repContinuous(false)
@@ -124,22 +130,41 @@ QExplore::QExplore(QObject* parent)
     getIndices_t();
     getQueries();
     getImports();
+
+    startRestListener();
+
+
     QObject::connect(static_cast<QGuiApplication*>(QCoreApplication::instance()), SIGNAL(applicationStateChanged(Qt::ApplicationState)),
                      this, SLOT(onApplicationStateChanged(Qt::ApplicationState)));
 
 }
 
-void QExplore::initCivetWeb()
+QExplore::~QExplore()
 {
-#ifdef Q_OS_WIN
-    static bool wsInit = false;
-    if (!wsInit)
-    {
-        wsInit = true;
-        mg_start(nullptr, nullptr, nullptr);
-    }
-#endif
+    destroyDependants();
 }
+
+void QExplore::startRestListener()
+{
+    if (m_restListener != nullptr)
+        return;
+    C4Error error {};
+    mg_init_library(0);
+
+    m_restListener = c4listener_start(&configRestListener , &error);
+    if(m_restListener == nullptr)
+    {
+        displayMessage(QExplore::logC4Error("Unable to create restListener", error));
+        m_error = true;
+    }
+    else
+    {
+        QString infoStr(QString("RestListener started at port %0.").arg(configRestListener.port));
+        qWarning("%s", qPrintable(infoStr));
+        displayMessage(infoStr);
+    }
+}
+
 
 void QExplore::onApplicationStateChanged(Qt::ApplicationState state)
 {
@@ -165,10 +190,6 @@ void QExplore::onApplicationStateChanged(Qt::ApplicationState state)
     qDebug () << state << ": ApplicationState" << strState;
 }
 
-QExplore::~QExplore()
-{
-    destroyDependants();
-}
 
 
 void QExplore::destroyDependants()
@@ -596,7 +617,6 @@ bool QExplore::startReplication(bool continuous)
 
     if (!m_replicator)
     {
-        initCivetWeb();
         QSlString remoteDbName (m_dbname);
         QSlString repUrl = (QSlString)m_repUrl;
 
@@ -951,12 +971,49 @@ bool QExplore::saveQueryContent(const QString& name, const QString& content, boo
         displayMessage(msg);
         return false;
     }
-
-    m_queryCache[name] = json;
+    createQueryCache(name, json);
 
     createQueryName(name);
 
     return true;
+}
+
+///
+/// \brief Helper function to parse the query to cache the query and extract the column  names.
+///
+void QExplore::createQueryCache(const QString& queryName, const QString& json)
+{
+    m_queryCache.clear();
+    m_queryCache[queryName].append(json);
+
+    QJsonArray qArr = Helper::jStringToJArray(json);
+    if(qArr.count() < 2)
+        return;
+
+    if(qArr.at(0).toString().toUpper() != QLatin1String("SELECT"))
+        return;
+
+    QJsonArray wEntries = qArr.at(1).toObject().constFind("WHAT").value().toArray();
+
+    if (wEntries.isEmpty())
+
+    {
+        m_queryCache[queryName].append("key");
+        m_queryCache[queryName].append("sequence");
+        return;
+    }
+    for (QJsonArray::ConstIterator  it = wEntries.constBegin();
+         it != wEntries.constEnd();
+         it++)
+    {
+
+        QString colName = (*it).toString();
+        if(colName == QLatin1String("._id"))
+            colName = "key";
+        else if (colName  == QLatin1String("._sequence"))
+            colName = "sequence";
+        m_queryCache[queryName].append(colName);
+    }
 }
 
 bool QExplore::deleteIndexContent_v(const QString& name)
@@ -1578,7 +1635,7 @@ DocItem* QExplore::createSearchItem(C4QueryEnumerator* qenum)
         if (!c4Doc)
         {
             displayMessage(QExplore::logC4Error(QString("Unable to get document from sequence = %0").arg(seqNumber), c4err));
-            return false;
+            return nullptr;
         }
     }
     else
@@ -1587,7 +1644,7 @@ DocItem* QExplore::createSearchItem(C4QueryEnumerator* qenum)
         if (!c4Doc)
         {
             displayMessage(QExplore::logC4Error(QString("Unable to get document %0").arg(docId), c4err));
-            return false;
+            return nullptr;
         }
 
     }
@@ -1662,9 +1719,12 @@ bool QExplore::viewQueryResults(int fetch)
 
 bool QExplore::runQuery(const QString& fname)
 {
-    QString content = m_queryCache[fname];
-
-    if (content.isEmpty())
+    QString content;
+    if (isQueryCached(fname))
+    {
+        content = getQueryContent(fname);
+    }
+    else
     {
         content = Helper::readTextFile(queryDir() + "/" + fname + ".json");
 
@@ -1675,8 +1735,7 @@ bool QExplore::runQuery(const QString& fname)
             displayMessage(msg);
             return false;
         }
-
-        m_queryCache[fname] = content;
+        createQueryCache(fname, content);
     }
 
     QString queryStr = hasQueryVar1() ? replaceQueryArguments(content) : content;
@@ -1689,7 +1748,7 @@ bool QExplore::runQuery(const QString& fname)
     else
         m_c4Query->reset();
 
-    m_c4Query->setQuery(queryStr);
+    m_c4Query->setQuery(fname, queryStr);
     displayMessage(QString("Start Query: %1").arg(queryStr));
     if(!m_c4Query->isRunning())
         m_c4Query->start();
@@ -2586,7 +2645,7 @@ void QExplore::requestDocumentsCount()
     m_docsCount = -1;
 
     C4RunQuery*  c4Query = new C4RunQuery(this);
-    c4Query->setQuery(QLatin1String("count"));
+    c4Query->setQuery(QLatin1String("count"), QLatin1String("count"));
 
     connect(c4Query, &C4RunQuery::queryFinished, this, [c4Query, this]() {
         setDocsCount(c4Query->count());
@@ -2616,6 +2675,8 @@ bool QExplore::openC4Database(C4DatabaseConfig* config)
     qInfo("Using database path %s", qPrintable(QDir::toNativeSeparators(dbPath)));
     displayMessage(QString("Using path: %0").arg(QDir::toNativeSeparators(dbPath)));
 
+
+
     QElapsedTimer  timer;
     timer.start();
 
@@ -2632,6 +2693,16 @@ bool QExplore::openC4Database(C4DatabaseConfig* config)
     // setDocsCount(c4db_getDocumentCount(m_c4Database));
     QString dbOpen = QString("Database %0 open in %1 ms.").arg(m_dbname).arg(timer.elapsed());
     qInfo("%s", qPrintable(dbOpen));
+
+    if(m_restListener != nullptr)
+    {
+        bool success = c4listener_shareDB(m_restListener, QSlString(m_dbname), m_c4Database);
+        QString dbShared;
+        dbShared = success ? QString("Restlistener shared DB %0.").arg(m_dbname)
+                           : QString("Restlistener cannot share DB %0.").arg(m_dbname);
+        qInfo("%s", qPrintable(dbShared));
+    }
+
 
 
     m_dbObserver =  createDbObserver();
@@ -2650,6 +2721,17 @@ bool QExplore::closeC4Database()
         return true;
 
     C4Error error;
+
+    if(m_restListener != nullptr)
+    {
+        bool success = c4listener_unshareDB(m_restListener, QSlString(m_dbname));
+        QString dbUnsharedShared;
+        dbUnsharedShared = success ? QString("Restlistener unshared DB %0.").arg(m_dbname)
+                           : QString("Restlistener cannot unshare DB %0.").arg(m_dbname);
+        qInfo("%s", qPrintable(dbUnsharedShared));
+    }
+
+
     bool success = c4db_close(m_c4Database, &error);
     if (success)
         qInfo("Database %s closed.", qPrintable(m_dbname));
@@ -2998,25 +3080,9 @@ void C4RunQuery::abort()
 
 C4RunQuery::~C4RunQuery()
 {
-    if (m_qenum != nullptr) c4queryenum_free(m_qenum);
-
-    if (m_c4query != nullptr) c4query_free(m_c4query);
-
-    if (m_c4DatabaseI != nullptr) c4db_free(m_c4DatabaseI);
-}
-
-QString C4RunQuery::nameOfColumn(int col)
-{
-    if (m_c4query == nullptr || col > m_colNameCache.size())
-        return QString();
-
-    if (m_colNameCache[col].isEmpty())
-    {
-        QString rawName = QSlice::qslToQString((QSlStringResult) c4query_nameOfColumn(m_c4query, col));
-        m_colNameCache[col] = rawName.contains('\'') ?  rawName.split('\'', QString::SkipEmptyParts)[1] : rawName;
-    }
-
-    return m_colNameCache[col];
+    c4queryenum_free(m_qenum);
+    c4query_free(m_c4query);
+    c4db_free(m_c4DatabaseI);
 }
 
 void C4RunQuery::runQueryCount()
@@ -3034,7 +3100,8 @@ void C4RunQuery::runQuery()
 
     m_elapsed = 0;
     C4Error error;
-    m_c4query = c4query_new(m_c4DatabaseI, (QSlString)m_query , &error);
+
+    m_c4query = c4query_new(m_c4DatabaseI, (QSlString)m_queryContent , &error);
 
     if (m_c4query == nullptr)
     {
@@ -3091,7 +3158,7 @@ void C4RunQuery::reset()
     }
 }
 
-QString C4RunQuery::markResult(const C4FullTextTerm* ft, int ftCount, C4Slice c4res)
+QString C4RunQuery::markResult(const C4FullTextMatch *ft, int ftCount, C4Slice c4res)
 {
     QByteArray content = QSlice::c4ToQByteArrayCopy(c4res);
 
@@ -3117,7 +3184,7 @@ C4QueryEnumerator* C4RunQuery::next()
 
     if (c4queryenum_next(m_qenum, &error))
     {
-        const C4FullTextTerm* ft = m_qenum->fullTextTerms;
+        const C4FullTextMatch* ft = m_qenum->fullTextMatches;
 
         if (ft != nullptr)
         {
@@ -3129,7 +3196,7 @@ C4QueryEnumerator* C4RunQuery::next()
             // symbol(s) not found for MacOs
             // C4StringResult c4resMatch = c4queryenum_fullTextMatched(m_qenum, &error);
             // C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, m_qenum->docID,  m_qenum->docSequence, &error);
-            C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, m_qenum->fullTextID, &error);
+            C4StringResult c4resMatch = c4query_fullTextMatched(m_c4query, ft, &error);
 
             if (error.code > 0)
             {
@@ -3138,7 +3205,7 @@ C4QueryEnumerator* C4RunQuery::next()
                 return m_qenum;
             }
 
-            int ftCount = m_qenum->fullTextTermCount;
+            int ftCount = m_qenum->fullTextMatchCount;
             m_fullTextRes = C4RunQuery::markResult(ft, ftCount, (C4Slice) c4resMatch);
             c4slice_free(c4resMatch);
         }
@@ -3174,7 +3241,7 @@ void C4RunQuery::run()
     }
     emit m_explore->queryFulltextChanged();
     emit m_explore->queryRunningChanged();
-    m_isDocumentCount = m_query.compare("count", Qt::CaseInsensitive) == 0;
+    m_isDocumentCount = m_queryContent.compare("count", Qt::CaseInsensitive) == 0;
     if(m_isDocumentCount)
         runQueryCount();
     else

@@ -35,8 +35,6 @@ win32 {
        LITECORE_BUILD_DIR  = $$LITECORE_BUILD_DIR/release
    }
 
-    message ("LITECORE_BUILD_DIR = $$LITECORE_BUILD_DIR")
-
     # LiteCore
     LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic
 
@@ -81,6 +79,7 @@ macx {
 
    LIBS += -L$$LIBCBL_DIR \
      -lLiteCore-static  \
+     -lLiteCoreREST-static \
      -lSQLCipher \
      -lFleece  \
      -lTokenizer   \
@@ -102,6 +101,7 @@ ios {
 
    LIBS += -L$$LIBCBL_DIR \
      -lLiteCore-static  \
+     -lLiteCoreREST-static \
      -lSQLCipher \
      -lFleece  \
      -lTokenizer   \

@@ -372,4 +372,26 @@ QString Helper::convertFileSizeToHumanReadable(quint64  bytes)
     }
 }
 
+QVariant Helper::jStringToVariant(const QString& json)
+{
+    QJsonParseError jerr;
+    QVariant res;
+    QJsonDocument doc =QJsonDocument::fromJson(json.toUtf8(), &jerr);
+    if(jerr.error == QJsonParseError::NoError)
+        res = doc.toVariant();
 
+    return res;
+}
+
+QJsonArray Helper::jStringToJArray(const QString& json)
+{
+    QJsonParseError jerr;
+
+    QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8(), &jerr);
+    if(jerr.error == QJsonParseError::NoError)
+    {
+        if(doc.isArray())
+            return doc.array();
+    }
+    return QJsonArray();
+}

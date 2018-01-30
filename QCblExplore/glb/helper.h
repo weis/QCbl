@@ -5,6 +5,11 @@
 #include <QVariant>
 #include <QTextStream>
 #include <QJsonDocument>
+#include <QJsonValue>
+#include <QJsonArray>
+#include <QJsonObject>
+
+
 
 class Helper
 {
@@ -21,6 +26,8 @@ public:
     static bool removeFile(const QString& fileName);
     static QString loadJsonFileFormatted(const QString& fileIn, bool *ok = nullptr, QString *errmsg = nullptr);
     static QString convertFileSizeToHumanReadable(quint64 bytes);
+    static QVariant jStringToVariant(const QString& json);
+    static QJsonArray jStringToJArray(const QString& json);
 
 private:
     static void writeIndent(QTextStream &jsonOut, int writeIndent, int level);

@@ -1,0 +1,1 @@
+["SELECT",{"WHAT":["._id"],"WHERE":["MATCH","byAddress","<<ADDRESS%s$Sa*>>"],"ORDER_BY":["._id"],"LIMIT":"<<LIMIT%n$10>>"}]
