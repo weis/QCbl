@@ -36,7 +36,7 @@ win32 {
    }
 
     # LiteCore
-    LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic
+    LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic -lLiteCoreREST_Static
 
     # FleeceStatic
     LIBS += -L$$LITECORE_BUILD_DIR/vendor/fleece  -lFleeceStatic
