@@ -4,8 +4,8 @@ CONFIG_PRI = 1
 
 CONFIG += c++11
 
-LITECORE_DIR  = $$absolute_path($$quote($$PWD/../src/3rdparty/couchbase-lite-core))
-LITECORE_BUILD_DIR  = $$absolute_path($$quote($$PWD/../build/3rdparty/couchbase-lite-core))
+LITECORE_DIR  = $$absolute_path($$quote($$PWD/../src/3rdparty/couchbase-lite-core/))
+LITECORE_BUILD_DIR  = $$absolute_path($$quote($$PWD/../build/))
 
 INCLUDEPATH   += \
     $$LITECORE_DIR/LiteCore \
@@ -14,7 +14,12 @@ INCLUDEPATH   += \
     $$LITECORE_DIR/LiteCore/Support \
     $$LITECORE_DIR/C \
     $$LITECORE_DIR/C/include \
-    $$LITECORE_DIR/vendor/fleece/Fleece
+    $$LITECORE_DIR/vendor \
+    $$LITECORE_DIR/vendor/fleece/Fleece \
+    $$LITECORE_DIR/vendor/fleece/Fleece/Support \
+    $$LITECORE_DIR/vendor/fleece/API_Impl \
+    $$LITECORE_DIR/vendor/fleece/API \
+    $$LITECORE_DIR/vendor/fleece/API/fleece
 
 win32 {
 
@@ -36,7 +41,7 @@ win32 {
    }
 
     # LiteCore
-    LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic -lLiteCoreREST_Static
+    LIBS += -L$$LITECORE_BUILD_DIR -lLiteCoreStatic -lSupport -lLiteCoreREST_Static
 
     # FleeceStatic
     LIBS += -L$$LITECORE_BUILD_DIR/vendor/fleece  -lFleeceStatic
@@ -79,6 +84,7 @@ macx {
 
    LIBS += -L$$LIBCBL_DIR \
      -lLiteCore-static  \
+     -lSupport \
      -lLiteCoreREST-static \
      -lSQLCipher \
      -lFleece  \
@@ -101,6 +107,7 @@ ios {
 
    LIBS += -L$$LIBCBL_DIR \
      -lLiteCore-static  \
+     -lSupport \
      -lLiteCoreREST-static \
      -lSQLCipher \
      -lFleece  \
@@ -111,32 +118,20 @@ ios {
 }
 
 unix:!macx:!ios {
-   LITECORE_BUILD_DIR  = $$quote($${LITECORE_BUILD_DIR}/linux)
 
-   CONFIG(debug, debug|release){
-       LITECORE_BUILD_DIR        = $${LITECORE_BUILD_DIR}/debug
 
-   }
-   CONFIG(release, debug|release){
-       LITECORE_BUILD_DIR        = $${LITECORE_BUILD_DIR}/release
-   }
-
-# message ("LITECORE_BUILD_DIR  unix = $$LITECORE_BUILD_DIR")
-
-SOURCES += $$LITECORE_DIR/LiteCore/Android/arc4random.cc
+# LiteCore
+LIBS += -L$$LITECORE_BUILD_DIR -lLiteCoreStatic -lSupport -L$$LITECORE_BUILD_DIR/REST -lLiteCoreREST_Static
 
 # FleeceStatic
 LIBS += -L$$LITECORE_BUILD_DIR/vendor/fleece  -lFleeceStatic
-
-# LiteCore
-LIBS += -L$$LITECORE_BUILD_DIR  -lLiteCoreStatic
 
 # SQLite3_UnicodeSN
 LIBS += -L$$LITECORE_BUILD_DIR/vendor/sqlite3-unicodesn  -lSQLite3_UnicodeSN
 
 # sqlcipher
-LIBS += -L$$LITECORE_BUILD_DIR/vendor/sqlcipher  -lsqlcipher
-LIBS += -L$$LITECORE_BUILD_DIR/vendor/sqlcipher/vendor/mbedtls/library  -lmbedcrypto
+#LIBS += -L$$LITECORE_BUILD_DIR/vendor/sqlcipher  -lsqlcipher
+LIBS += -L$$LITECORE_BUILD_DIR/vendor/mbedtls/library  -lmbedcrypto
 
 # BLIPStatic
 LIBS += -L$$LITECORE_BUILD_DIR/vendor/BLIP-Cpp  -lBLIPStatic -lz
@@ -148,18 +143,20 @@ LIBS += -L$$LITECORE_BUILD_DIR/REST -lCivetWeb
 LIBS += -ldl -licuuc -licui18n
 
 LIBS += -L/usr/lib \
-     -lc++  \
-
+     -lc++
 
 }
 
 }
 
 HEADERS += \
-    $$PWD/../src/qcbl.h
+    $$PWD/../src/qcbl.h \
+    $$PWD/../src/qcblwebsocket.h
 
 SOURCES += \
-    $$PWD/../src/qcbl.cpp
+    $$PWD/../src/qcbl.cpp \
+    $$PWD/../src/qcblwebsocket.cpp
 
 INCLUDEPATH   +=$$PWD/../src
+
 

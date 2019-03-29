@@ -1,6 +1,6 @@
 lessThan(QT_MAJOR_VERSION, 5): error(This project requires Qt 5 or later)
 
-QT += gui core qml quick network
+QT += gui core qml quick network websockets
 
 TEMPLATE = app
 CONFIG += c++11

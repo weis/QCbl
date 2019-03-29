@@ -143,7 +143,10 @@ static bool testVariant(const QString &path)
     QString dump = QSlice::c4ToQString((QSlStringResult) FLData_Dump(vSliceRoot));
     Helper::writeTextFile(path + "/dump.txt", dump);
     bool ok = false;
-    QVariantMap vCheck = (QFleece::toVariant((FLSlice) vSliceRoot, false, &ok)).toMap();
+
+    alloc_slice sl((FLSlice)vSliceRoot);
+    Doc d(sl);
+    QVariantMap vCheck = (QFleece::toVariant(d, &ok)).toMap();
 
     if (!ok)
     {

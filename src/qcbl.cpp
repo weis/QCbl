@@ -28,21 +28,20 @@
 ****************************************************************************/
 
 #include "qcbl.h"
-#include "FleeceException.hh"
+#include "fleece/Fleece/Support/FleeceException.hh"
 
 #include <math.h>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QMetaType>
 
-
-QVariant QFleece::toVariant(const FLSlice& slize, bool trusted,  bool* ok)
+QVariant QFleece::toVariant(const slice &slize, SharedKeys sk, bool trusted,  bool* ok)
 {
-    FLValue root = trusted ? FLValue_FromTrustedData(slize)
-                   : FLValue_FromData(slize);
+    alloc_slice sl(slize);
+    Doc root(sl,trusted ? kFLTrusted : kFLUntrusted,sk);
 
     if (root != Q_NULLPTR)
-        return toVariant(root, ok);
+        return toVariant(root,ok);
 
     if (ok != Q_NULLPTR)
         *ok = false;
@@ -50,7 +49,7 @@ QVariant QFleece::toVariant(const FLSlice& slize, bool trusted,  bool* ok)
     return QVariant();
 }
 
-QVariant QFleece::toVariant(FLValue val, bool* ok)
+QVariant QFleece::toVariant(Doc val, bool* ok)
 {
     if (ok != Q_NULLPTR)
         *ok = true;
@@ -68,55 +67,54 @@ QVariant QFleece::toVariant(FLValue val, bool* ok)
 }
 
 
-QVariant QFleece::toVariantPrivate(FLValue val)
+QVariant QFleece::toVariantPrivate(Value val)
 {
-    switch (FLValue_GetType(val))
+    switch (val.type())
     {
     case kFLNull:
         return QVariant::fromValue((void*) Q_NULLPTR);
 
     case kFLBoolean:
-        return FLValue_AsBool(val);
+        return val.asBool();
 
     case kFLNumber:
     {
-        if (FLValue_IsInteger(val))
+        if (val.isInteger())
         {
-            if (FLValue_IsUnsigned(val))
+            if (val.isUnsigned())
             {
-                return (quint64) FLValue_AsUnsigned(val);
+                return (quint64) val.asUnsigned();
             }
 
-            return (qint64) FLValue_AsInt(val);
+            return (qint64) val.asInt();
         }
-        else if (FLValue_IsDouble(val))
+        else if (val.isDouble())
         {
-            return FLValue_AsDouble(val);
+            return val.asDouble();
         }
 
-        return FLValue_AsFloat(val);
+        return val.asFloat();
     }
 
     case kFLString:
-        return  QSlice::c4ToQString(FLValue_AsString(val));
+        return  QSlice::c4ToQString(val.asString());
 
     case kFLData:
     {
-        return QSlice::c4ToQByteArray(FLValue_AsData(val));
+        return QSlice::c4ToQByteArray(val.asData());
     }
 
     case kFLArray:
     {
-        FLArray array = FLValue_AsArray(val);
-        FLArrayIterator iter;
-        FLValue value;
+        Array array = val.asArray();
+        Value value;
         QVariantList result;
 
-        for (FLArrayIterator_Begin(array, &iter);
-             Q_NULLPTR != (value = FLArrayIterator_GetValue(&iter));
-             FLArrayIterator_Next(&iter))
+        for (Array::iterator iter = array.begin();
+             Q_NULLPTR != (value = iter.value());
+             iter.next())
         {
-            result.append(toVariant(value));
+            result.append(toVariantPrivate(value));
         }
 
         return result;
@@ -124,18 +122,17 @@ QVariant QFleece::toVariantPrivate(FLValue val)
 
     case kFLDict:
     {
-        FLDict dict = FLValue_AsDict(val);
-        FLDictIterator iter;
-        FLValue value;
-        FLString key;
+        Dict dict = val.asDict();
+        Value value;
+        slice key;
         QVariantMap result;
 
-        for (FLDictIterator_Begin(dict, &iter);
-             Q_NULLPTR != (value = FLDictIterator_GetValue(&iter));
-             FLDictIterator_Next(&iter))
+        for (Dict::iterator iter = dict.begin();
+             Q_NULLPTR != (value = iter.value());
+             iter.next())
         {
-            key = FLDictIterator_GetKeyString(&iter);
-            result[QSlice::c4ToQString(key)] = toVariant(value);
+            key = iter.keyString();
+            result[QSlice::c4ToQString(key)] = toVariantPrivate(value);
         }
 
         return result;
@@ -175,7 +172,7 @@ bool QFleece::jvIsInteger(double dbl)
         return false;
 
     return dbl < 0. ? dbl >= (double) std::numeric_limits<int32_t>::min()
-           : dbl <= (double) std::numeric_limits<uint32_t>::max();
+                    : dbl <= (double) std::numeric_limits<uint32_t>::max();
 }
 
 void QFleece::flEncodeJValue(FLEncoder enc, const QJsonValue& val)
@@ -241,8 +238,7 @@ void QFleece::flEncodeJValue(FLEncoder enc, const QJsonValue& val)
 
 QJsonValue QFleece::toJsonValue(const FLSlice& slize, bool trusted, bool* ok)
 {
-    FLValue root = trusted ? FLValue_FromTrustedData(slize)
-                   : FLValue_FromData(slize);
+    Value root = Value::fromData(slize,trusted ? kFLTrusted : kFLUntrusted);
 
     if (root == Q_NULLPTR)
     {
@@ -397,7 +393,7 @@ void QFleece::flEncodeVariant(FLEncoder enc, const QVariant& val)
         FLEncoder_WriteFloat(enc, val.toDouble());
         return;
 
-    // our json null representation
+        // our json null representation
     case QMetaType::VoidStar:
         if (val.canConvert<void*>() && val.value<void*>() == Q_NULLPTR)
         {
@@ -485,7 +481,7 @@ QString QFleece::minifyJson(const QString& json, FLError* err)
         *err = kFLNoError;
 
     // Don't sort keys
-    FLEncoder enc = FLEncoder_NewWithOptions(kFLEncodeFleece, 0, true, false);
+    FLEncoder enc = FLEncoder_NewWithOptions(kFLEncodeFleece, 0, true);
     FLEncoder_ConvertJSON(enc, QSlString(json));
     QSlResult res = FLEncoder_Finish(enc, err);
     FLEncoder_Free(enc);
@@ -493,7 +489,7 @@ QString QFleece::minifyJson(const QString& json, FLError* err)
     if (err && *err != kFLNoError)
         return QString();
 
-    FLValue root = FLValue_FromTrustedData(res);
+    Value root = Value::fromData(res,kFLTrusted);
     return  QSlice::qslToQString((QSlResult) FLValue_ToJSON(root));
 }
 

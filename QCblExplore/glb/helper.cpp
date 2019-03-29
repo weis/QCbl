@@ -161,8 +161,8 @@ QString Helper::formatJson(const QString& jsonIn, int indent)
 void Helper::writeJsonFileStyled(const QString& fileName, const QJsonValue& jval)
 {
     QSlResult res = QFleece::fromJsonValue(jval);
-    FLValue val = FLValue_FromData((FLSlice) res);
-    QString jsonRaw =  QSlice::qslToQString((QSlResult) FLValue_ToJSONX(val, nullptr, false, false));
+    FLValue val = FLValue_FromData((FLSlice) res,kFLUntrusted);
+    QString jsonRaw =  QSlice::qslToQString((QSlResult) FLValue_ToJSONX(val, false, false));
     QString jsonStyled = formatJson(jsonRaw, 2);
     writeTextFile(fileName, jsonStyled);
 }
@@ -170,8 +170,8 @@ void Helper::writeJsonFileStyled(const QString& fileName, const QJsonValue& jval
 void Helper::writeJsonFileStyled(const QString& fileName, const QVariantMap& qmap)
 {
     QSlResult res = QFleece::fromVariant(qmap);
-    FLValue val = FLValue_FromData((FLSlice) res);
-    QString jsonRaw = QSlice::qslToQString((QSlResult) FLValue_ToJSONX(val, nullptr, false, false));
+    FLValue val = FLValue_FromData((FLSlice) res,kFLUntrusted);
+    QString jsonRaw = QSlice::qslToQString((QSlResult) FLValue_ToJSONX(val, false, false));
     QString jsonStyled = formatJson(jsonRaw, 2);
     writeTextFile(fileName, jsonStyled);
 }
@@ -186,7 +186,9 @@ QVariantMap Helper::readJsonFile(const QString& fileName)
     if(res.isNull() || res.isEmpty())
         return QVariantMap ();
 
-    return  QFleece::toVariant(FLValue_FromTrustedData(res)).toMap();
+    alloc_slice sl((FLSlice)res);
+    Doc d(sl);
+    return  QFleece::toVariant(d).toMap();
 }
 
 bool Helper::removeFile(const QString &fileName)

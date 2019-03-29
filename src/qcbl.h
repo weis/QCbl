@@ -30,11 +30,12 @@
 #ifndef QCBL_H
 #define QCBL_H
 
-#include <Fleece.h>
+#include <Fleece.hh>
 #include <c4Base.h>
 #include <QVariant>
 #include <QJsonValue>
 
+using namespace fleece;
 ///
 /// \brief The QSlice class provides Qt-Type
 /// interoperability to Slize / C4Slize / FLSlize structures.
@@ -58,7 +59,7 @@ public:
     ///
     /// \brief Compatibility constructor.
     ///
-    Q_DECL_CONSTEXPR inline QSlice(C4Slice s) Q_DECL_NOTHROW :
+    Q_DECL_CONSTEXPR inline QSlice(slice s) Q_DECL_NOTHROW :
         m_data((const char*) s.buf), m_size((int) s.size)   {}
 
     ///
@@ -76,6 +77,12 @@ public:
     }
 
 
+    ///
+    /// \brief slice compatibility cast.
+    ///
+    inline operator slice() const Q_DECL_NOTHROW {
+        return  { (const void*) m_data, (size_t) m_size };
+    }
     ///
     /// \brief C4Slice compatibility cast.
     ///
@@ -142,15 +149,15 @@ public:
     /// \brief Constructs a QByteArray that uses the bytes of c4slize.
     /// The bytes are not copied.
     ///
-    inline static QByteArray c4ToQByteArray(const C4Slice& c4slize) Q_DECL_NOTHROW
+    inline static QByteArray c4ToQByteArray(const slice& c4slize) Q_DECL_NOTHROW
     {
         return QByteArray::fromRawData((const char*) c4slize.buf, (int) c4slize.size);
     }
 
     ///
-    /// \brief Constructs a C4Slice from a QByteArray.
+    /// \brief Constructs a slice from a QByteArray.
     ///
-    inline static C4Slice c4FromQByteArray(const QByteArray& array) Q_DECL_NOTHROW
+    inline static slice c4FromQByteArray(const QByteArray& array) Q_DECL_NOTHROW
     {
         return { (const void*) array.constData(), (size_t) array.size() };
     }
@@ -167,7 +174,7 @@ public:
     ///
     /// \brief Constructs a QByteArray containing the copied bytes of c4slize.
     ///
-    inline static QByteArray c4ToQByteArrayCopy(const C4Slice& c4slize) Q_DECL_NOTHROW
+    inline static QByteArray c4ToQByteArrayCopy(const slice& c4slize) Q_DECL_NOTHROW
     {
         return QByteArray((const char*) c4slize.buf, (int) c4slize.size);
     }
@@ -183,7 +190,7 @@ public:
     ///
     /// \brief Returns a QString from the UTF-8-encoded data in c4slize.
     ///
-    inline static QString c4ToQString(const C4Slice& c4slize) Q_DECL_NOTHROW
+    inline static QString c4ToQString(const slice& c4slize) Q_DECL_NOTHROW
     {
         return QString::fromUtf8((const char*) c4slize.buf, (int) c4slize.size);
     }
@@ -233,6 +240,16 @@ public:
         m_data = m_utf8.constData();
         m_size = m_utf8.size();
     }
+
+
+    ///
+    /// \brief Constructs a QSlString from a qt string.
+    ///
+    inline static QSlString qslStringFromQString(const QString& str) Q_DECL_NOTHROW
+    {
+        return QSlString(str);
+    }
+
 
 private:
     // databuffer to store the converted Utf8 chars.
@@ -292,6 +309,7 @@ public:
 // Let Qt's generic containers choose appropriate storage methods and algorithms:
 Q_DECLARE_TYPEINFO(QSlStringResult, Q_MOVABLE_TYPE);
 
+
 ///
 /// \brief The QFleece class supplies interoperability between
 /// QJsonValue and QVariant classes.
@@ -312,13 +330,13 @@ public:
     /// \brief Constructs a new QVariant from a val reference.
     /// If a conversion error occurs, *ok is set to false; otherwise *ok is set to true.
     ///
-    static QVariant toVariant(FLValue val, bool* ok = Q_NULLPTR);
+    static QVariant toVariant(Doc val, bool* ok = Q_NULLPTR);
 
     ///
     /// \brief Constructs a new QVariant from slize.
     ///  If trusted is true, the data validation is minimal.
     ///
-    static QVariant toVariant(const FLSlice& slize, bool trusted = true, bool* ok = Q_NULLPTR);
+    static QVariant toVariant(const slice& slize, SharedKeys sk, bool trusted = true, bool* ok = Q_NULLPTR);
 
     ///
     /// \brief Returns a FLSliceResult from a Variant and a Encoder enc.
@@ -377,7 +395,7 @@ public:
 private:
     static void flEncodeVariant(FLEncoder enc, const QVariant& val);
     static void flEncodeJValue(FLEncoder enc, const QJsonValue& val);
-    static QVariant toVariantPrivate(FLValue val);
+    static QVariant toVariantPrivate(Value val);
     static QJsonValue toJsonValuePrivate(FLValue val);
     static void flEncodeHashToDictionary(const QVariantHash& hash, FLEncoder enc);
     static void flEncodeMapToDictionary(const QVariantMap& map, FLEncoder enc);

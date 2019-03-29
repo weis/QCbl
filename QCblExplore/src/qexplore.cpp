@@ -48,8 +48,8 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QDebug>
-#include <3rdparty/couchbase-lite-core/vendor/civetweb/include/civetweb.h>
 #include "qcbl/qcbltest.h"
+#include "qcblwebsocket.h"
 
 #define MAX_QUERY_ARGS 3
 #define MAX_OUTCHANGES_BUFFER 100
@@ -149,7 +149,7 @@ void QExplore::startRestListener()
     if (m_restListener != nullptr)
         return;
     C4Error error {};
-    mg_init_library(0);
+    c4socket_registerFactory(C4QtSocketFactory);
 
     m_restListener = c4listener_start(&configRestListener , &error);
     if(m_restListener == nullptr)
@@ -622,7 +622,7 @@ bool QExplore::startReplication(bool continuous)
 
         C4String  c4RemoteDbName = remoteDbName;
         C4Address remoteAddress;
-        if (!c4repl_parseURL(repUrl, &remoteAddress, &c4RemoteDbName))
+        if (!c4address_fromURL(repUrl, &remoteAddress, &c4RemoteDbName))
         {
             QString errStr = QString("Unable to read remote url %1.").arg(m_repUrl);
             qWarning("%s", qPrintable(errStr));
@@ -1602,8 +1602,8 @@ DocItem* QExplore::createSearchItem(C4QueryEnumerator* qenum)
          nullptr != (value = FLArrayIterator_GetValue(&iter));
          FLArrayIterator_Next(&iter))
     {
-
-        QVariant result = QFleece::toVariant(value);
+        Value v(value);
+        QVariant result = QFleece::toVariant(v.findDoc());
         QString field = m_c4Query->nameOfColumn(col++);
         if(!field.compare("key"))
         {
@@ -1691,7 +1691,8 @@ bool QExplore::viewQueryResults(int fetch)
                 if((field.compare("key") && field.compare("sequence")))
                 {
 
-                    QVariant result = QFleece::toVariant(value);
+                    Value v(value);
+                    QVariant result = QFleece::toVariant(v.findDoc());
                     if (!resText.isEmpty())
                         resText.append("; ");
 
@@ -2793,11 +2794,7 @@ bool QExplore::deleteC4Database(bool reopen)
         return false;
     }
 
-    if (!c4db_free(m_c4Database))
-    {
-        qCritical("Unable to free database %s", qPrintable(m_dbname));
-        return false;
-    }
+    c4db_free(m_c4Database);
 
     m_c4Database = nullptr;
     displayMessage("Database deleted.");
@@ -2811,11 +2808,7 @@ bool QExplore::deleteC4Database(bool reopen)
 
 bool QExplore::removeC4Database()
 {
-    if (!c4db_free(m_c4Database))
-    {
-        qCritical("Unable to free database %s", qPrintable(m_dbname));
-        return false;
-    }
+    c4db_free(m_c4Database);
 
     QString dbDirName =  databaseDir();
 
